@@ -69,7 +69,7 @@ class ERFNet:
         x = self._non_bottleneck_1d(x, 16, 0.03, 1)
         x = self._non_bottleneck_1d(x, 16, 0.03, 1)
         x = Conv2DTranspose(filters=self.num_classes,
-                            kernel_size=(2, 2), strides=2, padding='valid',  activation='relu')(x)
+                            kernel_size=(2, 2), strides=2, padding='valid',  activation='softmax')(x)
         model = Model(inputs=inputs, outputs=x)
 
         optimizer = Adam(learning_rate=5e-4, beta_1=0.9,

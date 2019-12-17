@@ -380,9 +380,9 @@ def shuffle_train_data(data):
 
 if __name__ == '__main__':
     # SETTINGS
-    data_dir = "/content/erfnet_segmentation/km10k/"
+    data_dir = "/content/ERFNet_TF_2.0/km10k/"
     h5_file = "data.h5"
-    shape = [480, 640]
+    shape = [640, 480]
     width, height = shape
     n_channels = 3
     label_chanel_axis=False # Create chanels axis for label images?
