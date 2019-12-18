@@ -38,7 +38,7 @@ if __name__ == '__main__':
     # class_weights = bdd100k.class_weights
     # n_classes = bdd100k.n_classes
     data = prepare_data(data_file, valid_from_train=True,
-                        n_valid=1000, max_data=None)
+                        n_valid=100, max_data=5000)
     print(data.keys())
     data = shuffle_train_data(data)
     net = ERFNet([480, 640, 3], 7)
