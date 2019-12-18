@@ -15,6 +15,46 @@ class MyCustomCallback(tf.keras.callbacks.Callback):
         print(epoch, logs)
 
 
+def get_class_masks(y_true, y_pred, n_classes):
+    gt = []
+    pred = []
+    for i in range(n_classes):
+        im1 = np.all(y_true == colormap[i], axis=-1)
+        im2 = np.all(y_pred == colormap[i], axis=-1)
+        if(len(np.unique(im1)) < 2 & & len(np.unique(im2)) < 2):
+            continue
+        im11 = np.zeros((480, 640), dtype=np.int16)
+        im22 = np.zeros((480, 640), dtype=np.int16)
+        im11[im1[0]] = 255
+        im22[im2[0]] = 255
+        gt.append(im11)
+        pred.append(im22)
+    gt = np.asarray(gt)
+    pred = np.asarray(pred)
+    return gt, pred
+
+
+def get_predictions(model, im, width, height, n_classes, colormap):
+    input_data = []
+    input_data.append(im)
+    input_data = np.asarray(input_data)
+    pred_mask = model.predict(input_data)
+    pred_mask = tf.keras.backend.eval(pred_mask)[0]
+    mask = np.zeros((height, width), dtype=np.int8)
+    for i in range(n_classes):
+        mask[pred_mask[:, :, i] >= 0.5] = i
+    mask = np.array(colormap)[mask].astype(np.uint8)
+    mask = mask[:, :, ::-1]
+    return mask
+
+
+def calculate_iou(y_true, y_pred):
+    intersection = np.logical_and(y_true, y_pred)
+    union = np.logical_or(y_true, y_pred)
+    iou_score = np.sum(intersection) / np.sum(union)
+    return iou_score
+
+
 def set_callbacks():
     log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
