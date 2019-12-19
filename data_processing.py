@@ -258,7 +258,7 @@ def load_image_and_seglabels(input_files, label_files, colormap, shape=(32,32), 
 #                                                                   PREPARE_DATA
 # ==============================================================================
 
-def prepare_data(data_file, valid_from_train=False, n_valid=1024, max_data=None, verbose=True):
+def prepare_data(data_file, n_classes, valid_from_train=False, n_valid=1024, max_data=None, verbose=True):
     # data = pickle2obj(data_file)
     ds = h52obj(data_file)
     data = {}
@@ -282,6 +282,7 @@ def prepare_data(data_file, valid_from_train=False, n_valid=1024, max_data=None,
     data['colormap'] = [(0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
     data['weights'] = [0.21706227, 3.87922712, 9.64396687,
                        6.6800881,  3.99014264, 2.35461766, 7.59079911]
+    data['n_classes'] = n_classes
 
     if verbose:
         # Print information about data
