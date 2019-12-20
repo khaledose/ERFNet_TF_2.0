@@ -16,14 +16,14 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         print("Epoch "+str(epoch+1)+": Train IoU = " +
               str(iou_t), "Validation IoU of  = " + str(iou_v))
         np.append(history['val_loss'], logs['val_loss'])
-        np.append(history['train_loss'], logs['train_loss'])
-        np.append(history['train_iou'], logs['train_iou'])
-        np.append(history['val_iou'], logs['val_iou'])
+        np.append(history['train_loss'], logs['loss'])
+        np.append(history['train_iou'], iou_t)
+        np.append(history['val_iou'], iou_v)
         obj2h5(history, history_file)
         draw_training_curve(history['train_loss'], history['val_loss'],
                             "/content/drive/My Drive/km10k/ERFNet/loss.png", "Loss over time", "Loss", "lower right")
         draw_training_curve(history['train_iou'], history['val_iou'],
-                            "/content/drive/My Drive/km10k/ERFNet/loss.png", "IoU over time", "IoU", "lower right")
+                            "/content/drive/My Drive/km10k/ERFNet/iou.png", "IoU over time", "IoU", "lower right")
 
     def print_iou(self, x, y, n):
         iou = 0
@@ -86,7 +86,7 @@ if __name__ == '__main__':
               data['y_train'],
               epochs=50,
               validation_data=(data['x_val'], data['y_val']),
-              validation_freq=10,
+              validation_freq=1,
               class_weight=data['weights'],
               batch_size=8,
               callbacks=set_callbacks('/content/drive/My Drive/km10k/ERFNet/'))
