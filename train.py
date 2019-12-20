@@ -15,10 +15,10 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         iou_v = self.print_iou('x_val', 'y_val', 10)
         print("Epoch "+str(epoch+1)+": Train IoU = " +
               str(iou_t), "Validation IoU of  = " + str(iou_v))
-        history['val_loss'].append(logs['val_loss'])
-        history['train_loss'].append(logs['loss'])
-        history['train_iou'].append(iou_t)
-        history['val_iou'].append(iou_v)
+        np.append(history['val_loss'], logs['val_loss'])
+        np.append(history['train_loss'], logs['train_loss'])
+        np.append(history['train_iou'], logs['train_iou'])
+        np.append(history['val_iou'], logs['val_iou'])
         obj2h5(history, history_file)
         draw_training_curve(history['train_loss'], history['val_loss'],
                             "/content/drive/My Drive/km10k/ERFNet/loss.png", "Loss over time", "Loss", "lower right")
