@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
-from data_processing import prepare_data, shuffle_train_data
+from data_processing import prepare_data, shuffle_train_data, prepare_history, h52obj, obj2h5
+from visualizer import draw_training_curve
 from model_arch import ERFNet
 from tensorflow.keras.callbacks import TensorBoard
 import datetime
@@ -8,13 +9,21 @@ import os
 import cv2
 
 
-class IoUCallback(tf.keras.callbacks.Callback):
+class HistoryCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         iou_t = self.print_iou('x_train', 'y_train', 10)
         iou_v = self.print_iou('x_val', 'y_val', 10)
-        print()
         print("Epoch "+str(epoch+1)+": Train IoU = " +
               str(iou_t), "Validation IoU of  = " + str(iou_v))
+        history['val_loss'].append(logs['val_loss'])
+        history['train_loss'].append(logs['loss'])
+        history['train_iou'].append(iou_t)
+        history['val_iou'].append(iou_v)
+        obj2h5(history, history_file)
+        draw_training_curve(history['train_loss'], history['val_loss'],
+                            "/content/drive/My Drive/km10k/ERFNet/loss.png", "Loss over time", "Loss", "lower right")
+        draw_training_curve(history['train_iou'], history['val_iou'],
+                            "/content/drive/My Drive/km10k/ERFNet/loss.png", "IoU over time", "IoU", "lower right")
 
     def print_iou(self, x, y, n):
         iou = 0
@@ -26,23 +35,6 @@ class IoUCallback(tf.keras.callbacks.Callback):
         return iou
 
 
-def get_class_masks(y_true, y_pred, n_classes, colormap):
-    gt = {}
-    pred = {}
-    for i in range(n_classes):
-        im1 = np.all(y_true == colormap[i], axis=-1)
-        im2 = np.all(y_pred == colormap[i], axis=-1)
-        if(len(np.unique(im1)) < 2 and len(np.unique(im2)) < 2):
-            continue
-        im11 = np.zeros((480, 640), dtype=np.int16)
-        im22 = np.zeros((480, 640), dtype=np.int16)
-        im11[im1] = 255
-        im22[im2] = 255
-        gt[i] = im11
-        pred[i] = im22
-    return gt, pred
-
-
 def get_predictions(model, im, width, height, n_classes, colormap):
     input_data = []
     input_data.append(im)
@@ -52,8 +44,6 @@ def get_predictions(model, im, width, height, n_classes, colormap):
     mask = np.zeros((height, width), dtype=np.int8)
     for i in range(n_classes):
         mask[pred_mask[:, :, i] >= 0.5] = i
-    # mask = np.array(colormap)[mask].astype(np.uint8)
-    # mask = mask[:, :, ::-1]
     return mask
 
 
@@ -76,17 +66,19 @@ def set_callbacks(path):
     cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                      save_weights_only=True,
                                                      verbose=1)
-    return [cp_callback, tensorboard_callback, IoUCallback()]
+    return [cp_callback, tensorboard_callback, HistoryCallback()]
 
 
 if __name__ == '__main__':
     data_file = 'data.h5'
+    history_file = "/content/drive/My Drive/km10k/ERFNet/history.h5"
     # bdd100k = BDD100k('/content/km10k/data/', 0.1, 640, 480)
     # data = bdd100k.data
     # class_weights = bdd100k.class_weights
     # n_classes = bdd100k.n_classes
     data = prepare_data(data_file=data_file, n_classes=7, valid_from_train=True,
-                        n_valid=10, max_data=1000)
+                        n_valid=10, max_data=100)
+    history = h52obj(history_file)
     data = shuffle_train_data(data)
     net = ERFNet([480, 640, 3], 7)
     model = net.model

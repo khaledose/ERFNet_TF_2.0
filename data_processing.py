@@ -297,6 +297,14 @@ def prepare_data(data_file, n_classes, valid_from_train=False, n_valid=1024, max
 
     return data
 
+def prepare_history(file):
+    data  = {}
+    data['train_loss'] = []
+    data['val_loss'] = []
+    data['train_iou'] = []
+    data['val_iou'] = []
+
+    obj2h5(data, file)
 
 # ==============================================================================
 #                                                        CALCULATE_CLASS_WEIGHTS
@@ -383,12 +391,15 @@ if __name__ == '__main__':
     # SETTINGS
     data_dir = "/content/ERFNet_TF_2.0/km10k/"
     h5_file = "data.h5"
+    history_file = "/content/drive/My Drive/km10k/ERFNet/history.h5"
     shape = [640, 480]
     width, height = shape
     n_channels = 3
     label_chanel_axis=False # Create chanels axis for label images?
 
     print("CREATING DATA")
+    if not os.path.isfile(history_file):
+        prepare_history(history_file)
     print("- Getting list of files")
     file_data = create_data_dict(data_dir, X_train_subdir="images", Y_train_subdir="labels")
     n_samples = len(file_data["x_train"])
