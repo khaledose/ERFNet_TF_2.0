@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 from data_processing import prepare_data, shuffle_train_data, prepare_history, h52obj, obj2h5
-from visualizer import draw_training_curve
+from visualizer import draw_training_curve, viz_segmentation_pairs
 from model_arch import ERFNet
 from tensorflow.keras.callbacks import TensorBoard
 import datetime
@@ -15,15 +15,32 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         iou_v = self.print_iou('x_val', 'y_val', 10)
         print("Epoch "+str(epoch+1)+": Train IoU = " +
               str(iou_t), "Validation IoU of  = " + str(iou_v))
-        np.append(history['val_loss'], logs['val_loss'])
-        np.append(history['train_loss'], logs['loss'])
-        np.append(history['train_iou'], iou_t)
-        np.append(history['val_iou'], iou_v)
+        history['val_loss'] = np.append(history['val_loss'], logs['val_loss'])
+        history['train_loss'] = np.append(history['train_loss'], logs['loss'])
+        history['train_iou'] = np.append(history['train_iou'], iou_t)
+        history['val_iou'] = np.append(history['val_iou'], iou_v)
         obj2h5(history, history_file)
         draw_training_curve(history['train_loss'], history['val_loss'],
                             "/content/drive/My Drive/km10k/ERFNet/loss.png", "Loss over time", "Loss", "lower right")
         draw_training_curve(history['train_iou'], history['val_iou'],
                             "/content/drive/My Drive/km10k/ERFNet/iou.png", "IoU over time", "IoU", "lower right")
+        preds_t = []
+        preds_v = []
+        viz_img_template = os.path.join(
+            "/content/drive/My Drive/km10k/ERFNet", "samples", "{}", "epoch_{: 07d}.jpg")
+        for i in range(8):
+            preds_t.append(get_predictions(
+                model, data['x_train_viz'][i], 640, 480, data['n_classes'], data['colormap']))
+            preds_v.append(get_predictions(
+                model, data['x_val'][i], 640, 480, data['n_classes'], data['colormap']))
+        preds_t = np.asarray(preds_t)
+        preds_v = np.asarray(preds_v)
+        viz_segmentation_pairs(
+            data['x_train_viz'][:8], data['y_train_viz'][:8], preds_t, data['colormap'], (
+                2, 4), viz_img_template.format("train", epoch))
+        viz_segmentation_pairs(
+            data['x_val'][:8], data['y_val'][:8], preds_v, data['colormap'], (
+                2, 4), viz_img_template.format("val", epoch))
 
     def print_iou(self, x, y, n):
         iou = 0
@@ -78,6 +95,8 @@ if __name__ == '__main__':
     # n_classes = bdd100k.n_classes
     data = prepare_data(data_file=data_file, n_classes=7, valid_from_train=True,
                         n_valid=10, max_data=100)
+    if not os.path.isfile(history_file):
+        prepare_history(history_file)
     history = h52obj(history_file)
     data = shuffle_train_data(data)
     net = ERFNet([480, 640, 3], 7)
