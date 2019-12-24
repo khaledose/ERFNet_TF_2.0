@@ -124,7 +124,7 @@ def pickle2obj(file):
 # ==============================================================================
 #                                                              CREATE_FILE_LISTS
 # ==============================================================================
-def create_file_lists(inputs_dir, labels_dir):
+def create_file_lists(inputs_dir, labels_dir, limit):
     """ Given the paths to the directories containing the input and label
         images, it creates a list of the full filepaths for those images,
         with the same ordering, so the same index in each list represents
@@ -133,20 +133,21 @@ def create_file_lists(inputs_dir, labels_dir):
         Returns 2-tuple of two lists: (input_files, label_files)
     """
     # Create (synchronized) lists of full file paths to input and label images
-    label_files = glob.glob(os.path.join(labels_dir, "*.png"))
-    file_ids = [os.path.basename(f).replace("_L.png", ".png") for f in label_files]
+    label_files = glob.glob(os.path.join(labels_dir, "*.png"))[:limit]
+    file_ids = [os.path.basename(f).replace("_L.png", ".png") for f in label_files[:limit]]
     input_files = [os.path.join(inputs_dir, file_id[:-3]+'jpg') for file_id in file_ids]
+    print(len(input_files), len(label_files))
     return input_files, label_files
 
 
 # ==============================================================================
 #                                                               CREATE_DATA_DICT
 # ==============================================================================
-def create_data_dict(datadir, X_train_subdir="train_inputs", Y_train_subdir="train_labels"):
+def create_data_dict(datadir, X_train_subdir="train_inputs", Y_train_subdir="train_labels", limit=1000):
     data = {}
     data["x_train"], data["y_train"] = create_file_lists(
         inputs_dir=os.path.join(datadir, X_train_subdir),
-        labels_dir=os.path.join(datadir, Y_train_subdir))
+        labels_dir=os.path.join(datadir, Y_train_subdir), limit=1000)
     return data
 
 
@@ -259,7 +260,7 @@ def load_image_and_seglabels(input_files, label_files, colormap, shape=(32,32), 
 # ==============================================================================
 
 def prepare_data(data_file, n_classes, valid_from_train=False, n_valid=1024, max_data=None, verbose=True):
-    # data = pickle2obj(data_file)
+    print("Preparing Data Dictionary")
     ds = h52obj(data_file)
     data = {}
     # Create validation from train data
@@ -369,6 +370,7 @@ def calculate_class_weights(Y, n_classes, method="paszke", c=1.02):
 
 def obj2h5(data, h5_file):
     with h5py.File(h5_file, 'w') as f:
+        i = 0
         for key, value in data.items():
             f.create_dataset(key, data=value)
 
@@ -401,7 +403,7 @@ if __name__ == '__main__':
     if not os.path.isfile(history_file):
         prepare_history(history_file)
     print("- Getting list of files")
-    file_data = create_data_dict(data_dir, X_train_subdir="images", Y_train_subdir="labels")
+    file_data = create_data_dict(data_dir, X_train_subdir="images", Y_train_subdir="labels", limit=1000)
     n_samples = len(file_data["x_train"])
 
     est_size = n_samples*width*height*(3+1)/(1024*1000)

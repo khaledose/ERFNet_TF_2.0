@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
-from data_processing import prepare_data, shuffle_train_data, prepare_history, h52obj, obj2h5
 from visualizer import draw_training_curve, viz_segmentation_pairs
+from dataset import BDD100k, obj2h5, h52obj
 from model_arch import ERFNet
 from tensorflow.keras.callbacks import TensorBoard
 import datetime
@@ -11,28 +11,43 @@ import cv2
 
 class HistoryCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
-        iou_t = self.print_iou('x_train', 'y_train', 10)
-        iou_v = self.print_iou('x_val', 'y_val', 10)
+        iou_t = self.print_iou('x_train', 'y_train', val_split)
+        iou_v = self.print_iou('x_val', 'y_val', val_split)
+        self.save_best_model(iou_v)
         print("Epoch "+str(epoch+1)+": Train IoU = " +
               str(iou_t), "Validation IoU of  = " + str(iou_v))
-        history['val_loss'] = np.append(history['val_loss'], logs['val_loss'])
-        history['train_loss'] = np.append(history['train_loss'], logs['loss'])
+        if 'val_loss' in logs:
+            history['val_loss'] = np.append(
+                history['val_loss'], logs['val_loss'])
+            history['train_loss'] = np.append(
+                history['train_loss'], logs['loss'])
         history['train_iou'] = np.append(history['train_iou'], iou_t)
         history['val_iou'] = np.append(history['val_iou'], iou_v)
         obj2h5(history, history_file)
+        self.draw_curves(history)
+        self.draw_samples(epoch)
+
+    def draw_curves(self, history):
         draw_training_curve(history['train_loss'], history['val_loss'],
-                            "/content/drive/My Drive/km10k/ERFNet/loss.png", "Loss over time", "Loss", "lower right")
+                            model_path+"loss.png", "Loss over time", "Loss", "lower right")
         draw_training_curve(history['train_iou'], history['val_iou'],
-                            "/content/drive/My Drive/km10k/ERFNet/iou.png", "IoU over time", "IoU", "lower right")
+                            model_path+"iou.png", "IoU over time", "IoU", "lower right")
+
+    def save_best_model(self, iou_v):
+        iou = history['val_iou']
+        if iou.shape[0] == 0 or iou_v > np.amax(iou):
+            model.save_weights(model_path+'best_model/cp.ckpt')
+
+    def draw_samples(self, epoch):
         preds_t = []
         preds_v = []
         viz_img_template = os.path.join(
-            "/content/drive/My Drive/km10k/ERFNet", "samples", "{}", "epoch_{: 07d}.jpg")
+            model_path, "samples", "{}", "epoch_{: 07d}.jpg")
         for i in range(8):
             preds_t.append(get_predictions(
-                model, data['x_train_viz'][i], 640, 480, data['n_classes'], data['colormap']))
+                model, data['x_train_viz'][i], width, height, data['n_classes'], data['colormap']))
             preds_v.append(get_predictions(
-                model, data['x_val'][i], 640, 480, data['n_classes'], data['colormap']))
+                model, data['x_val'][i], width, height, data['n_classes'], data['colormap']))
         preds_t = np.asarray(preds_t)
         preds_v = np.asarray(preds_v)
         viz_segmentation_pairs(
@@ -46,7 +61,7 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         iou = 0
         for i in range(n):
             mask = get_predictions(
-                model, data[x][i], 640, 480, data['n_classes'], data['colormap'])
+                model, data[x][i], width, height, data['n_classes'], data['colormap'])
             iou += calculate_iou(data[y][i], mask)
         iou = iou/n
         return iou
@@ -60,7 +75,7 @@ def get_predictions(model, im, width, height, n_classes, colormap):
     pred_mask = tf.keras.backend.eval(pred_mask)[0]
     mask = np.zeros((height, width), dtype=np.int8)
     for i in range(n_classes):
-        mask[pred_mask[:, :, i] >= 0.5] = i
+        mask[pred_mask[:, :, i] >= 0.005] = i
     return mask
 
 
@@ -69,6 +84,16 @@ def calculate_iou(y_true, y_pred):
     union = np.logical_or(y_true, y_pred)
     iou_score = np.sum(intersection) / np.sum(union)
     return iou_score
+
+
+def prepare_history(file):
+    data = {}
+    data['train_loss'] = []
+    data['val_loss'] = []
+    data['train_iou'] = []
+    data['val_iou'] = []
+
+    obj2h5(data, file)
 
 
 def set_callbacks(path):
@@ -87,27 +112,29 @@ def set_callbacks(path):
 
 
 if __name__ == '__main__':
-    data_file = 'data.h5'
-    history_file = "/content/drive/My Drive/km10k/ERFNet/history.h5"
-    # bdd100k = BDD100k('/content/km10k/data/', 0.1, 640, 480)
-    # data = bdd100k.data
-    # class_weights = bdd100k.class_weights
-    # n_classes = bdd100k.n_classes
-    data = prepare_data(data_file=data_file, n_classes=7, valid_from_train=True,
-                        n_valid=10, max_data=100)
+    model_path = "/content/drive/My Drive/km10k/ERFNet/"
+    data_dir = "/content/ERFNet_TF_2.0/km10k/"
+    history_file = model_path + "history.h5"
+    width, height = 640, 480
+    data_limit = 1000
+    val_split = 100
+    n_epochs = 50
+    batch_size = 8
+
     if not os.path.isfile(history_file):
         prepare_history(history_file)
     history = h52obj(history_file)
-    data = shuffle_train_data(data)
-    net = ERFNet([480, 640, 3], 7)
+
+    dataset = BDD100k(data_dir, width, height, data_limit, val_split, 7)
+    data = dataset.data
+    data = dataset.shuffle_train_data(data)
+    net = ERFNet([height, width, 3], data['n_classes'])
     model = net.model
     model.fit(data['x_train'],
               data['y_train'],
-              epochs=50,
+              epochs=n_epochs,
               validation_data=(data['x_val'], data['y_val']),
-              validation_freq=1,
+              validation_freq=5,
               class_weight=data['weights'],
-              batch_size=8,
-              callbacks=set_callbacks('/content/drive/My Drive/km10k/ERFNet/'))
-
-    # model.evaluate((data['x_val'], data['y_val']))
+              batch_size=batch_size,
+              callbacks=set_callbacks(model_path))
