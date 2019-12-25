@@ -112,8 +112,8 @@ def set_callbacks(path):
 
 
 if __name__ == '__main__':
-    model_path = "/content/drive/My Drive/km10k/ERFNet/"
-    data_dir = "/content/ERFNet_TF_2.0/km10k/"
+    model_path = "/home/asu_visitors/ERFNet/"
+    data_dir =model_path+ "dataset/"
     history_file = model_path + "history.h5"
     width, height = 640, 480
     data_limit = 1000
