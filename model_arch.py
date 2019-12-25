@@ -5,6 +5,8 @@ from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, concatenate, Batch
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
 
+tf.debugging.set_log_device_placement(True)
+
 
 class MeanIoU(tf.keras.metrics.Metric):
 
@@ -45,43 +47,44 @@ class ERFNet:
 
     # ================================ GET MODEL ==========================================
     def _get_model(self, verbose=True):
-        inputs = Input(shape=self.input_shape)
-        x = self._downsampler_block(inputs, 16)
-        x = self._downsampler_block(x, 64)
-        x = self._non_bottleneck_1d(x, 64, 0.03, 1)
-        x = self._non_bottleneck_1d(x, 64, 0.03, 1)
-        x = self._non_bottleneck_1d(x, 64, 0.03, 1)
-        x = self._non_bottleneck_1d(x, 64, 0.03, 1)
-        x = self._non_bottleneck_1d(x, 64, 0.03, 1)
-        x = self._downsampler_block(x, 128)
-        x = self._non_bottleneck_1d(x, 128, 0.03, 2)
-        x = self._non_bottleneck_1d(x, 128, 0.03, 4)
-        x = self._non_bottleneck_1d(x, 128, 0.03, 8)
-        x = self._non_bottleneck_1d(x, 128, 0.03, 16)
-        x = self._non_bottleneck_1d(x, 128, 0.03, 2)
-        x = self._non_bottleneck_1d(x, 128, 0.03, 4)
-        x = self._non_bottleneck_1d(x, 128, 0.03, 8)
-        x = self._non_bottleneck_1d(x, 128, 0.03, 16)
-        x = self._upsampler_block(x, 64)
-        x = self._non_bottleneck_1d(x, 64, 0.03, 1)
-        x = self._non_bottleneck_1d(x, 64, 0.03, 1)
-        x = self._upsampler_block(x, 16)
-        x = self._non_bottleneck_1d(x, 16, 0.03, 1)
-        x = self._non_bottleneck_1d(x, 16, 0.03, 1)
-        x = Conv2DTranspose(filters=self.num_classes,
-                            kernel_size=(2, 2), strides=2, padding='valid',  activation='softmax')(x)
-        model = Model(inputs=inputs, outputs=x)
+        with tf.device('/device:GPU:1'):
+            inputs = Input(shape=self.input_shape)
+            x = self._downsampler_block(inputs, 16)
+            x = self._downsampler_block(x, 64)
+            x = self._non_bottleneck_1d(x, 64, 0.03, 1)
+            x = self._non_bottleneck_1d(x, 64, 0.03, 1)
+            x = self._non_bottleneck_1d(x, 64, 0.03, 1)
+            x = self._non_bottleneck_1d(x, 64, 0.03, 1)
+            x = self._non_bottleneck_1d(x, 64, 0.03, 1)
+            x = self._downsampler_block(x, 128)
+            x = self._non_bottleneck_1d(x, 128, 0.03, 2)
+            x = self._non_bottleneck_1d(x, 128, 0.03, 4)
+            x = self._non_bottleneck_1d(x, 128, 0.03, 8)
+            x = self._non_bottleneck_1d(x, 128, 0.03, 16)
+            x = self._non_bottleneck_1d(x, 128, 0.03, 2)
+            x = self._non_bottleneck_1d(x, 128, 0.03, 4)
+            x = self._non_bottleneck_1d(x, 128, 0.03, 8)
+            x = self._non_bottleneck_1d(x, 128, 0.03, 16)
+            x = self._upsampler_block(x, 64)
+            x = self._non_bottleneck_1d(x, 64, 0.03, 1)
+            x = self._non_bottleneck_1d(x, 64, 0.03, 1)
+            x = self._upsampler_block(x, 16)
+            x = self._non_bottleneck_1d(x, 16, 0.03, 1)
+            x = self._non_bottleneck_1d(x, 16, 0.03, 1)
+            x = Conv2DTranspose(filters=self.num_classes,
+                                kernel_size=(2, 2), strides=2, padding='valid',  activation='softmax')(x)
+            model = Model(inputs=inputs, outputs=x)
 
-        optimizer = Adam(learning_rate=5e-4, beta_1=0.9,
-                         beta_2=0.999, decay=2e-4, epsilon=1e-08)
+            optimizer = Adam(learning_rate=5e-4, beta_1=0.9,
+                             beta_2=0.999, decay=2e-4, epsilon=1e-08)
 
-        model.compile(optimizer=optimizer,
-                      loss=SparseCategoricalCrossentropy(), metrics=None)
+            model.compile(optimizer=optimizer,
+                          loss=SparseCategoricalCrossentropy(), metrics=None)
 
-        if verbose:
-            model.summary()
+            if verbose:
+                model.summary()
 
-        return model
+            return model
 
     # ================================ BOTTLENECK =========================================
 
