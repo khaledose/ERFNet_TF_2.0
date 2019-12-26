@@ -54,7 +54,7 @@ class BDD100k():
         print("- Estimated data size is {} MB (+ overhead)".format(est_size))
 
         print("- Loading image files and converting to arrays")
-        
+
         self.data["x_train"], self.data["y_train"] = self.load_image_and_seglabels(
             input_files=self.file_data["x_train"],
             label_files=self.file_data["y_train"],
@@ -66,13 +66,15 @@ class BDD100k():
         print("- H5pying the data to:", self. h5_file)
         obj2h5(self.data, self.h5_file)
         self.data = self.prepare_data(data_file=self.h5_file, n_classes=n_classes, valid_from_train=True,
-                            n_valid=val_limit, max_data=None)
+                                      n_valid=val_limit, max_data=None)
         print("- DONE!")
 
     def create_file_lists(self, inputs_dir, labels_dir, limit):
         label_files = glob.glob(os.path.join(labels_dir, "*.png"))[:limit]
-        file_ids = [os.path.basename(f).replace("_L.png", ".png") for f in label_files[:limit]]
-        input_files = [os.path.join(inputs_dir, file_id[:-3]+'jpg') for file_id in file_ids]
+        file_ids = [os.path.basename(f).replace(
+            "_L.png", ".png") for f in label_files[:limit]]
+        input_files = [os.path.join(inputs_dir, file_id[:-3]+'jpg')
+                       for file_id in file_ids]
         print(len(input_files), len(label_files))
         return input_files, label_files
 
@@ -82,9 +84,10 @@ class BDD100k():
             inputs_dir=os.path.join(datadir, X_train_subdir),
             labels_dir=os.path.join(datadir, Y_train_subdir), limit=1000)
         return data
-    
-    def load_image_and_seglabels(self, input_files, label_files, colormap, shape=(32,32), n_channels=3, label_chanel_axis=False):
-        assert n_channels in {1,3}, "Incorrect value for n_channels. Must be 1 or 3. Got {}".format(n_channels)
+
+    def load_image_and_seglabels(self, input_files, label_files, colormap, shape=(32, 32), n_channels=3, label_chanel_axis=False):
+        assert n_channels in {
+            1, 3}, "Incorrect value for n_channels. Must be 1 or 3. Got {}".format(n_channels)
 
         width, height = shape
         n_samples = len(label_files)
@@ -99,14 +102,17 @@ class BDD100k():
             img_file = input_files[i]
             label_file = label_files[i]
 
-            img = PIL.Image.open(img_file).resize(shape, resample=PIL.Image.CUBIC)
-            label_img = PIL.Image.open(label_file).resize(shape, resample=PIL.Image.NEAREST)
+            img = PIL.Image.open(img_file).resize(
+                shape, resample=PIL.Image.CUBIC)
+            label_img = PIL.Image.open(label_file).resize(
+                shape, resample=PIL.Image.NEAREST)
 
             img = np.asarray(img, dtype=np.uint8)
             label_img = np.asarray(label_img, dtype=np.uint8)
 
             if colormap is not None:
-                label_img = self.rgb2seglabel(label_img, colormap=colormap, channels_axis=label_chanel_axis)
+                label_img = self.rgb2seglabel(
+                    label_img, colormap=colormap, channels_axis=label_chanel_axis)
 
             X[i] = img
             Y[i] = label_img
@@ -116,13 +122,13 @@ class BDD100k():
     def rgb2seglabel(self, img, colormap, channels_axis=False):
         height, width, _ = img.shape
         if channels_axis:
-            label = np.zeros([height, width,1], dtype=np.uint8)
+            label = np.zeros([height, width, 1], dtype=np.uint8)
         else:
             label = np.zeros([height, width], dtype=np.uint8)
         for id in range(len(colormap)):
-            label[np.all(img==np.array(idcolormap[id]), axis=2)] = id
+            label[np.all(img == np.array(idcolormap[id]), axis=2)] = id
         return label
-    
+
     def prepare_data(self, data_file, n_classes, valid_from_train=False, n_valid=1024, max_data=None, verbose=True):
         print("Preparing Data Dictionary")
         ds = h52obj(data_file)
@@ -142,8 +148,10 @@ class BDD100k():
 
         data["id2label"] = id2label
         data["label2id"] = label2id
-        data['colormap'] = [(0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
-        data['weights'] = self.calculate_class_weights(data["y_train"], n_classes)
+        data['colormap'] = [(0, 0, 0), (255, 0, 0), (0, 255, 0),
+                            (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+        data['weights'] = self.calculate_class_weights(
+            data["y_train"], n_classes)
         data['n_classes'] = n_classes
 
         if verbose:
@@ -168,7 +176,7 @@ class BDD100k():
         elif method == "eigen":
             assert False, "TODO: Implement eigen method"
         elif method in {"eigen2", "logeigen2"}:
-            epsilon = 1e-8 
+            epsilon = 1e-8
             median = np.median(p_class)
             weights = median/(p_class+epsilon)
             if method == "logeigen2":
@@ -188,7 +196,6 @@ class BDD100k():
 
 def obj2h5(data, h5_file):
     with h5py.File(h5_file, 'w') as f:
-        i = 0
         for key, value in data.items():
             f.create_dataset(key, data=value)
 
@@ -199,5 +206,3 @@ def h52obj(file):
         for key, value in f.items():
             data[key] = value[:]
     return data
-
-   
