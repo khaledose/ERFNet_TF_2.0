@@ -3,6 +3,8 @@ import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
+
+
 import tensorflow as tf
 from tensorflow.keras.callbacks import TensorBoard
 import numpy as np
@@ -11,6 +13,9 @@ from dataset import BDD100k, obj2h5, h52obj
 from model_arch import ERFNet
 import datetime
 import argparse
+
+tf.config.set_soft_device_placement(True)
+tf.debugging.set_log_device_placement(True)
 class HistoryCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         iou_t = self.print_iou('x_train', 'y_train', val_split)
