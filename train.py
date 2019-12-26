@@ -14,8 +14,7 @@ from model_arch import ERFNet
 import datetime
 import argparse
 
-tf.config.set_soft_device_placement(True)
-tf.debugging.set_log_device_placement(True)
+
 class HistoryCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         iou_t = self.print_iou('x_train', 'y_train', val_split)

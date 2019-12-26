@@ -5,6 +5,7 @@ from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, concatenate, Batch
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
 
+tf.config.set_soft_device_placement(True)
 tf.debugging.set_log_device_placement(True)
 
 
