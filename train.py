@@ -74,7 +74,7 @@ def get_predictions(model, im, width, height, n_classes, colormap):
     pred_mask = tf.keras.backend.eval(pred_mask)[0]
     mask = np.zeros((height, width), dtype=np.int8)
     for i in range(n_classes):
-        mask[pred_mask[:, :, i] >= 0.005] = i
+        mask[pred_mask[:, :, i] >= 0.5] = i
     return mask
 
 
@@ -115,9 +115,9 @@ if __name__ == '__main__':
     data_dir = model_path + "dataset/"
     history_file = model_path + "history.h5"
     width, height = 640, 480
-    data_limit = 1000
-    val_split = 100
-    n_epochs = 50
+    data_limit = 20000
+    val_split = 1000
+    n_epochs = 150
     batch_size = 8
 
     if not os.path.isfile(history_file):
