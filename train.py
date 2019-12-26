@@ -1,36 +1,26 @@
-
-import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-
-
-
-import tensorflow as tf
-from tensorflow.keras.callbacks import TensorBoard
-import numpy as np
-from visualizer import draw_training_curve, viz_segmentation_pairs
-from dataset import BDD100k, obj2h5, h52obj
-from model_arch import ERFNet
-import datetime
 import argparse
+import datetime
+from model_arch import ERFNet
+from dataset import BDD100k, obj2h5, h52obj
+from visualizer import draw_training_curve, viz_segmentation_pairs
+import numpy as np
+from tensorflow.keras.callbacks import TensorBoard
+import tensorflow as tf
+import os
 
 
 class HistoryCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         iou_t = self.print_iou('x_train', 'y_train', val_split)
-        iou_v = self.print_iou('x_val', 'y_val', val_split)
-        self.save_best_model(iou_v)
-        print("Epoch "+str(epoch+1)+": Train IoU = " +
-              str(iou_t), "Validation IoU of  = " + str(iou_v))
-        if 'val_loss' in logs:
-            history['val_loss'] = np.append(
-                history['val_loss'], logs['val_loss'])
-            history['train_loss'] = np.append(
-                history['train_loss'], logs['loss'])
+        print("Epoch "+str(epoch+1)+": Train IoU = " + str(iou_t))
+        # if 'val_loss' in logs:
+        #     history['val_loss'] = np.append(
+        #         history['val_loss'], logs['val_loss'])
+        #     history['train_loss'] = np.append(
+        #         history['train_loss'], logs['loss'])
         history['train_iou'] = np.append(history['train_iou'], iou_t)
-        history['val_iou'] = np.append(history['val_iou'], iou_v)
+        history['epoch'] = np.append(history['epoch'], epoch)
         obj2h5(history, history_file)
-        self.draw_curves(history)
         self.draw_samples(epoch)
 
     def draw_curves(self, history):
@@ -46,22 +36,15 @@ class HistoryCallback(tf.keras.callbacks.Callback):
 
     def draw_samples(self, epoch):
         preds_t = []
-        preds_v = []
         viz_img_template = os.path.join(
             model_path, "samples", "{}", "epoch_{: 07d}.jpg")
         for i in range(8):
             preds_t.append(get_predictions(
                 model, data['x_train_viz'][i], width, height, data['n_classes'], data['colormap']))
-            preds_v.append(get_predictions(
-                model, data['x_val'][i], width, height, data['n_classes'], data['colormap']))
         preds_t = np.asarray(preds_t)
-        preds_v = np.asarray(preds_v)
         viz_segmentation_pairs(
             data['x_train_viz'][:8], data['y_train_viz'][:8], preds_t, data['colormap'], (
                 2, 4), viz_img_template.format("train", epoch))
-        viz_segmentation_pairs(
-            data['x_val'][:8], data['y_val'][:8], preds_v, data['colormap'], (
-                2, 4), viz_img_template.format("val", epoch))
 
     def print_iou(self, x, y, n):
         iou = 0
@@ -94,10 +77,9 @@ def calculate_iou(y_true, y_pred):
 
 def prepare_history(file):
     data = {}
-    data['train_loss'] = []
-    data['val_loss'] = []
     data['train_iou'] = []
     data['val_iou'] = []
+    data['epoch'] = []
 
     obj2h5(data, file)
 
@@ -135,7 +117,8 @@ if __name__ == '__main__':
         "--batch", "-b", help="set training batch size", type=int, default=8)
     args = parser.parse_args()
     model_path = args.model_path
-    data_dir = model_path + "dataset/"
+    colab_path = '/content/ERFNet_TF_2.0/'
+    data_dir = colab_path + "dataset/"
     history_file = model_path + "history.h5"
     width, height = args.width, args.height
     data_limit = args.limit
@@ -155,8 +138,6 @@ if __name__ == '__main__':
     model.fit(data['x_train'],
               data['y_train'],
               epochs=n_epochs,
-              validation_data=(data['x_val'], data['y_val']),
-              validation_freq=5,
               class_weight=data['weights'],
               batch_size=batch_size,
               callbacks=set_callbacks(model_path))
