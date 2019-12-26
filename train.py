@@ -118,7 +118,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--width", "-w", help="set network width", type=int, default=640)
     parser.add_argument(
-        "--height", "-h", help="set network height", type=int, default=480)
+        "--height", "-ht", help="set network height", type=int, default=480)
     parser.add_argument(
         "--limit", "-l", help="set dataset inputs limit", type=int, default=20000)
     parser.add_argument(
