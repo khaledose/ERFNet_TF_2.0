@@ -6,6 +6,7 @@ from model_arch import ERFNet
 from tensorflow.keras.callbacks import TensorBoard
 import datetime
 import os
+import argparse
 
 
 class HistoryCallback(tf.keras.callbacks.Callback):
@@ -111,14 +112,30 @@ def set_callbacks(path):
 
 
 if __name__ == '__main__':
-    model_path = "./"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_path", "-mp",
+                        help="set training directory", type=str, default='./')
+    parser.add_argument(
+        "--width", "-w", help="set network width", type=int, default=640)
+    parser.add_argument(
+        "--height", "-h", help="set network height", type=int, default=480)
+    parser.add_argument(
+        "--limit", "-l", help="set dataset inputs limit", type=int, default=20000)
+    parser.add_argument(
+        "--vlimit", "-v", help="set val split", type=int, default=1000)
+    parser.add_argument(
+        "--epoch", "-e", help="set training number of epochs", type=int, default=150)
+    parser.add_argument(
+        "--batch", "-b", help="set training batch size", type=int, default=8)
+    args = parser.parse_args()
+    model_path = args.model_path
     data_dir = model_path + "dataset/"
     history_file = model_path + "history.h5"
-    width, height = 640, 480
-    data_limit = 20000
-    val_split = 1000
-    n_epochs = 150
-    batch_size = 8
+    width, height = args.width, args.height
+    data_limit = args.limit
+    val_split = args.vlimit
+    n_epochs = args.epoch
+    batch_size = args.batch
 
     if not os.path.isfile(history_file):
         prepare_history(history_file)
