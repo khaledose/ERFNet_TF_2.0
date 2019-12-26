@@ -6,7 +6,6 @@ from model_arch import ERFNet
 from tensorflow.keras.callbacks import TensorBoard
 import datetime
 import os
-import cv2
 
 
 class HistoryCallback(tf.keras.callbacks.Callback):
@@ -113,7 +112,7 @@ def set_callbacks(path):
 
 if __name__ == '__main__':
     model_path = "/home/asu_visitors/ERFNet/"
-    data_dir =model_path+ "dataset/"
+    data_dir = model_path + "dataset/"
     history_file = model_path + "history.h5"
     width, height = 640, 480
     data_limit = 1000
