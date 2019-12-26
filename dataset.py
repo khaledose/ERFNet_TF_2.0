@@ -82,7 +82,7 @@ class BDD100k():
         data = {}
         data["x_train"], data["y_train"] = self.create_file_lists(
             inputs_dir=os.path.join(datadir, X_train_subdir),
-            labels_dir=os.path.join(datadir, Y_train_subdir), limit=1000)
+            labels_dir=os.path.join(datadir, Y_train_subdir), limit=limit)
         return data
 
     def load_image_and_seglabels(self, input_files, label_files, colormap, shape=(32, 32), n_channels=3, label_chanel_axis=False):
