@@ -97,11 +97,11 @@ if __name__ == '__main__':
     data = dataset.data
     net = ERFNet([height, width, 3], data['n_classes'])
     model = net.model
-    model.load_weights(model_path+'checkpoints/cp.ckpt')
 
     current_epoch = 0
     while True:
         history = h52obj(history_file)
         if history['epoch'][-1] == current_epoch:
+            model.load_weights(model_path+'checkpoints/cp.ckpt')
             on_epoch_end(current_epoch)
             current_epoch += 1
