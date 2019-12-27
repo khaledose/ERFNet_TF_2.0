@@ -31,7 +31,7 @@ idcolormap = [label_colormap[label] for label in id2label]
 
 
 class BDD100k():
-    def __init__(self, data_dir, width, height, limit, val_limit, n_classes):
+    def __init__(self, data_dir, width, height, limit, val_limit, n_classes, train_method):
         self.data_dir = data_dir  # "/content/ERFNet_TF_2.0/km10k/"
         self.h5_file = self.data_dir+"data.h5"
         self.width, self.height = width, height
@@ -41,8 +41,8 @@ class BDD100k():
         self.data = {}
         if os.path.isfile(self.h5_file):
             print("Data H5 "+self.h5_file+" is found")
-            self.data = self.prepare_data(data_file=self.h5_file, n_classes=n_classes, valid_from_train=True,
-                                          n_valid=val_limit, max_data=None)
+            if train_method == 0:
+                self.data = h52obj(self.h5_file, 0, limit)
             return
         print("CREATING DATA")
         print("- Getting list of files")
@@ -64,9 +64,11 @@ class BDD100k():
             label_chanel_axis=self.label_chanel_axis)
 
         print("- H5pying the data to:", self. h5_file)
+        self.data = self.prepare_data(
+            data_file=self.h5_file, n_classes=n_classes, valid_from_train=True, n_valid=val_limit, max_data=None)
         obj2h5(self.data, self.h5_file)
-        self.data = self.prepare_data(data_file=self.h5_file, n_classes=n_classes, valid_from_train=True,
-                                      n_valid=val_limit, max_data=None)
+        if train_method == 1:
+            self.data = None
         print("- DONE!")
 
     def create_file_lists(self, inputs_dir, labels_dir, limit):
@@ -131,7 +133,7 @@ class BDD100k():
 
     def prepare_data(self, data_file, n_classes, valid_from_train=False, n_valid=1024, max_data=None, verbose=True):
         print("Preparing Data Dictionary")
-        ds = h52obj(data_file)
+        ds = h52obj(data_file, 0, max_data)
         data = {}
         if valid_from_train:
             data["x_val"] = ds["x_train"][:n_valid]
@@ -200,9 +202,21 @@ def obj2h5(data, h5_file):
             f.create_dataset(key, data=value)
 
 
-def h52obj(file):
+def h52obj(file, mini=0, maxi=None):
     data = {}
     with h5py.File(file, 'r') as f:
         for key, value in f.items():
-            data[key] = value[:]
+            if maxi != None:
+                data[key] = value[mini:maxi]
+            else:
+                data[key] = value[:]
+    return data
+
+
+def get_data(file):
+    data = {}
+    with h5py.File(file, 'r') as f:
+        for key, value in f.items():
+            if key != 'x_train' or key != 'y_train':
+                data[key] = value[:]
     return data

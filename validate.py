@@ -15,7 +15,7 @@ def on_epoch_end(epoch, logs=None):
     print("Epoch " + str(epoch+1) + "Validation IoU= " + str(iou_v))
     history['val_iou'] = np.append(history['val_iou'], iou_v)
     obj2h5(history, history_file)
-    draw_samples(epoch)
+    draw_samples(epoch, 'val')
 
 
 def save_best_model(iou_v):
@@ -24,17 +24,17 @@ def save_best_model(iou_v):
         model.save_weights(model_path+'best_model/cp.ckpt')
 
 
-def draw_samples(epoch):
+def draw_samples(epoch, x):
     preds_v = []
     viz_img_template = os.path.join(
         model_path, "samples", "{}", "epoch_{: 07d}.jpg")
     for i in range(8):
         preds_v.append(get_predictions(
-            model, data['x_val'][i], width, height, data['n_classes'], data['colormap']))
+            model, data['x_'+x][i], width, height, data['n_classes'], data['colormap']))
     preds_v = np.asarray(preds_v)
     viz_segmentation_pairs(
-        data['x_val'][:8], data['y_val'][:8], preds_v, data['colormap'], (
-            2, 4), viz_img_template.format("val", epoch))
+        data['x_'+x][:8], data['y_'+x][:8], preds_v, data['colormap'], (
+            2, 4), viz_img_template.format(x, epoch))
 
 
 def print_iou(x, y, n):
@@ -55,7 +55,7 @@ def get_predictions(model, im, width, height, n_classes, colormap):
     pred_mask = tf.keras.backend.eval(pred_mask)[0]
     mask = np.zeros((height, width), dtype=np.int8)
     for i in range(n_classes):
-        mask[pred_mask[:, :, i] >= 0.5] = i
+        mask[pred_mask[:, :, i] >= 0.005] = i
     return mask
 
 
@@ -99,9 +99,11 @@ if __name__ == '__main__':
     model = net.model
 
     current_epoch = 0
+    history = {}
     while True:
-        history = h52obj(history_file)
-        if history['epoch'][-1] == current_epoch:
-            model.load_weights(model_path+'checkpoints/cp.ckpt')
+        if os.path.isfile(history_file):
+            history = h52obj(history_file)
+        if 'epoch' in history and history['epoch'].shape[0] > 0 and history['epoch'][-1] == current_epoch:
+            model.load_weights(model_path+'last_epoch/cp.ckpt')
             on_epoch_end(current_epoch)
             current_epoch += 1
