@@ -65,7 +65,7 @@ class BDD100k():
 
         print("- H5pying the data to:", self. h5_file)
         self.data = self.prepare_data(
-            data_file=self.h5_file, n_classes=n_classes, valid_from_train=True, n_valid=val_limit, max_data=None)
+            data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit, max_data=None)
         obj2h5(self.data, self.h5_file)
         if train_method == 1:
             self.data = None
@@ -131,30 +131,28 @@ class BDD100k():
             label[np.all(img == np.array(idcolormap[id]), axis=2)] = id
         return label
 
-    def prepare_data(self, data_file, n_classes, valid_from_train=False, n_valid=1024, max_data=None, verbose=True):
+    def prepare_data(self, data, n_classes, valid_from_train=False, n_valid=1024, max_data=None, verbose=True):
         print("Preparing Data Dictionary")
-        ds = h52obj(data_file, 0, max_data)
-        data = {}
         if valid_from_train:
-            data["x_val"] = ds["x_train"][:n_valid]
-            data["y_val"] = ds["y_train"][:n_valid]
-            data["x_train"] = ds["x_train"][n_valid:]
-            data["y_train"] = ds["y_train"][n_valid:]
+            data["x_val"] = data["x_train"][:n_valid]
+            data["y_val"] = data["y_train"][:n_valid]
+            data["x_train"] = data["x_train"][n_valid:]
+            data["y_train"] = data["y_train"][n_valid:]
 
         if max_data:
-            data["x_train"] = ds["x_train"][:max_data]
-            data["y_train"] = ds["y_train"][:max_data]
+            data["x_train"] = data["x_train"][:max_data]
+            data["y_train"] = data["y_train"][:max_data]
 
-        data["x_train_viz"] = ds["x_train"][:25]
-        data["y_train_viz"] = ds["y_train"][:25]
+        data["x_train_viz"] = data["x_train"][:8]
+        data["y_train_viz"] = data["y_train"][:8]
 
-        data["id2label"] = id2label
-        data["label2id"] = label2id
+        # data["id2label"] = id2label
+        # data["label2id"] = label2id
         data['colormap'] = [(0, 0, 0), (255, 0, 0), (0, 255, 0),
                             (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
         data['weights'] = self.calculate_class_weights(
             data["y_train"], n_classes)
-        data['n_classes'] = n_classes
+        data['n_classes'] = [n_classes]
 
         if verbose:
             print("DATA SHAPES")

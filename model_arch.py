@@ -6,36 +6,6 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import SparseCategoricalCrossentropy
 
 
-
-class MeanIoU(tf.keras.metrics.Metric):
-
-    def __init__(self, name='miou', **kwargs):
-        super(MeanIoU, self).__init__(name=name, **kwargs)
-        self.true_positives = self.add_weight(name='tp', initializer='zeros')
-
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        smooth = 1
-        iou = []
-        for i in range(y_pred.shape[-1]):
-            y = y_pred[:, :, :, i]
-            intersection = tf.keras.backend.sum(
-                tf.keras.backend.abs(y_true * y), axis=[1, 2, 3])
-
-            union = tf.keras.backend.sum(y_true, [1, 2, 3]) + \
-                tf.keras.backend.sum(y, [1, 2, 3])-intersection
-
-            iou.append(tf.keras.backend.mean(
-                (intersection + smooth) / (union + smooth), axis=0))
-        return self.true_positives.assign_add(tf.keras.backend.mean(iou))
-
-    def result(self):
-        return self.true_positives
-
-    def reset_states(self):
-        # The state of the metric will be reset at the start of each epoch.
-        self.true_positives.assign(0.)
-
-
 class ERFNet:
     # ================================ INIT ===============================================
     def __init__(self, shape, num_classes):

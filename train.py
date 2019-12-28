@@ -11,19 +11,20 @@ import os
 
 class BatchGenerator(tf.keras.utils.Sequence):
 
-    def __init__(self, data_h5, batch_size, n_samples):
+    def __init__(self, data_h5, batch_size, n_samples, state):
         self.data_h5 = data_h5
         self.batch_size = batch_size
         self.n_samples = n_samples
+        self.state = state
 
     def __len__(self):
-        return (np.ceil(len(self.n_samples) / float(self.batch_size))).astype(np.int)
+        return (np.ceil(self.n_samples / float(self.batch_size))).astype(np.int)
 
     def __getitem__(self, idx):
         mini, maxi = idx * self.batch_size, (idx+1) * self.batch_size
         data = h52obj(self.data_h5, mini, maxi)
-        batch_x = data['x_train']
-        batch_y = data['y_train']
+        batch_x = data['x_'+self.state]
+        batch_y = data['y_'+self.state]
         return np.array(batch_x), np.array(batch_y)
 
 
@@ -61,7 +62,7 @@ class HistoryCallback(tf.keras.callbacks.Callback):
             model_path, "samples", "{}", "epoch_{: 07d}.jpg")
         for i in range(8):
             preds_v.append(get_predictions(
-                model, data['x_'+x][i], width, height, data['n_classes'], data['colormap']))
+                model, data['x_'+x][i], width, height, data['n_classes'][0], data['colormap']))
         preds_v = np.asarray(preds_v)
         viz_segmentation_pairs(
             data['x_'+x][:8], data['y_'+x][:8], preds_v, data['colormap'], (
@@ -71,7 +72,7 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         iou = 0
         for i in range(n):
             mask = get_predictions(
-                model, data[x][i], width, height, data['n_classes'], data['colormap'])
+                model, data[x][i], width, height, data['n_classes'][0], data['colormap'])
             iou += calculate_iou(data[y][i], mask)
         iou = iou/n
         return iou
@@ -85,7 +86,7 @@ def get_predictions(model, im, width, height, n_classes, colormap):
     pred_mask = tf.keras.backend.eval(pred_mask)[0]
     mask = np.zeros((height, width), dtype=np.int8)
     for i in range(n_classes):
-        mask[pred_mask[:, :, i] >= 0.005] = i
+        mask[pred_mask[:, :, i] >= 0.5] = i
     return mask
 
 
@@ -135,14 +136,14 @@ if __name__ == '__main__':
     parser.add_argument(
         "--epoch", "-e", help="set training number of epochs", type=int, default=150)
     parser.add_argument(
-        "--batch", "-b", help="set training batch size", type=int, default=8)
+        "--batch", "-b", help="set training batch size", type=int, default=16)
     parser.add_argument(
         "--train_method", "-t", help="train on full data or train by batch", type=int, default=1)
     args = parser.parse_args()
     model_path = args.model_path
     colab_path = '/content/ERFNet_TF_2.0/'
     data_dir = colab_path + "dataset/"
-    data_h5 = model_path + 'data.h5'
+    data_h5 = data_dir + 'data.h5'
     history_file = model_path + "history.h5"
     width, height = args.width, args.height
     data_limit = args.limit
@@ -159,7 +160,7 @@ if __name__ == '__main__':
     if train_method == 0:
         data = dataset.data
         data = dataset.shuffle_train_data(data)
-        net = ERFNet([height, width, 3], data['n_classes'])
+        net = ERFNet([height, width, 3], data['n_classes'][0])
         model = net.model
         model.fit(data['x_train'],
                   data['y_train'],
@@ -168,13 +169,16 @@ if __name__ == '__main__':
                   batch_size=batch_size,
                   callbacks=set_callbacks(model_path))
     else:
-        batch_generator = BatchGenerator(data_h5, batch_size, data_limit)
+        train_batch_generator = BatchGenerator(
+            data_h5, batch_size, 900, 'train')
+        # val_batch_generator = BatchGenerator(
+        #     data_h5, batch_size, val_split, 'val')
         data = get_data(data_h5)
-        net = ERFNet([height, width, 3], data['n_classes'])
+        net = ERFNet([height, width, 3], data['n_classes'][0])
         model = net.model
-        model.fit_generator(generator=batch_generator,
-                            validation_data=(data['val_x'], data['val_y']),
-                            validation_freq=1,
+        model.fit_generator(generator=train_batch_generator,
+                            # validation_data=val_batch_generator,
+                            # validation_freq=1,
                             epochs=n_epochs,
                             verbose=1,
                             class_weight=data['weights'],
