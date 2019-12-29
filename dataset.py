@@ -34,6 +34,7 @@ class BDD100k():
     def __init__(self, data_dir, width, height, limit, val_limit, n_classes, train_method):
         self.data_dir = data_dir  # "/content/ERFNet_TF_2.0/km10k/"
         self.h5_file = self.data_dir+"data.h5"
+        self.h5_stuff = self.data_dir+"stuff.h5"
         self.width, self.height = width, height
         self.shape = [self.width, self.height]
         self.n_channels = 3
@@ -43,6 +44,12 @@ class BDD100k():
             print("Data H5 "+self.h5_file+" is found")
             if train_method == 0:
                 self.data = h52obj(self.h5_file, 0, limit)
+            else:
+                self.data = h52obj(self.h5_file, maxi=val_limit*2)
+                self.data = self.prepare_data(
+                    data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
+                obj2h5(self.data, self.h5_stuff)
+                self.data = None
             return
         print("CREATING DATA")
         print("- Getting list of files")
@@ -64,9 +71,12 @@ class BDD100k():
             label_chanel_axis=self.label_chanel_axis)
 
         print("- H5pying the data to:", self. h5_file)
+        obj2h5(self.data, self.h5_file, mini=val_limit)
+        self.data = None
+        self.data = h52obj(self.h5_file, maxi=val_limit*2)
         self.data = self.prepare_data(
-            data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit, max_data=None)
-        obj2h5(self.data, self.h5_file)
+            data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
+        obj2h5(self.data, self.h5_stuff)
         if train_method == 1:
             self.data = None
         print("- DONE!")
@@ -131,39 +141,23 @@ class BDD100k():
             label[np.all(img == np.array(idcolormap[id]), axis=2)] = id
         return label
 
-    def prepare_data(self, data, n_classes, valid_from_train=False, n_valid=1024, max_data=None, verbose=True):
+    def prepare_data(self, data, n_classes, valid_from_train=False, n_valid=1024, verbose=True):
         print("Preparing Data Dictionary")
         if valid_from_train:
             data["x_val"] = data["x_train"][:n_valid]
             data["y_val"] = data["y_train"][:n_valid]
+            print('i survived')
             data["x_train"] = data["x_train"][n_valid:]
             data["y_train"] = data["y_train"][n_valid:]
 
-        if max_data:
-            data["x_train"] = data["x_train"][:max_data]
-            data["y_train"] = data["y_train"][:max_data]
+        data["x_train_viz"] = data["x_train"][n_valid:n_valid+8]
+        data["y_train_viz"] = data["y_train"][n_valid:n_valid+8]
 
-        data["x_train_viz"] = data["x_train"][:8]
-        data["y_train_viz"] = data["y_train"][:8]
-
-        # data["id2label"] = id2label
-        # data["label2id"] = label2id
         data['colormap'] = [(0, 0, 0), (255, 0, 0), (0, 255, 0),
                             (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
         data['weights'] = self.calculate_class_weights(
-            data["y_train"], n_classes)
+            data["y_train"][n_valid:], n_classes)
         data['n_classes'] = [n_classes]
-
-        if verbose:
-            print("DATA SHAPES")
-            print("- X_valid: ", (data["x_val"]).shape)
-            print("- Y_valid: ", (data["y_val"]).shape)
-            print("- X_train: ", (data["x_train"]).shape)
-            print("- Y_train: ", (data["y_train"]).shape)
-            if "X_test" in data:
-                print("- X_test: ", (data["x_test"]).shape)
-                print("- Y_test: ", (data["y_test"]).shape)
-
         return data
 
     def calculate_class_weights(self, Y, n_classes, method="paszke", c=1.02):
@@ -194,10 +188,13 @@ class BDD100k():
         return data
 
 
-def obj2h5(data, h5_file):
+def obj2h5(data, h5_file, mini=0, maxi=None):
     with h5py.File(h5_file, 'w') as f:
         for key, value in data.items():
-            f.create_dataset(key, data=value)
+            if maxi != None:
+                f.create_dataset(key, data=value[mini:maxi])
+            else:
+                f.create_dataset(key, data=value[mini:])
 
 
 def h52obj(file, mini=0, maxi=None):

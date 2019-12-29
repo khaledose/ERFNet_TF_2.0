@@ -8,6 +8,8 @@ from tensorflow.keras.callbacks import TensorBoard
 import tensorflow as tf
 import os
 
+os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+
 
 class BatchGenerator(tf.keras.utils.Sequence):
 
@@ -35,7 +37,7 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         if train_method == 1:
             iou_v = self.print_iou('x_val', 'y_val', val_split)
             self.save_best_model(iou_v)
-            print("Epoch " + str(epoch+1) + "Validation IoU= " + str(iou_v))
+            print("Epoch " + str(epoch+1) + ": Validation IoU= " + str(iou_v))
             history['val_iou'] = np.append(history['val_iou'], iou_v)
             self.draw_samples(epoch, 'val')
 
@@ -136,14 +138,15 @@ if __name__ == '__main__':
     parser.add_argument(
         "--epoch", "-e", help="set training number of epochs", type=int, default=150)
     parser.add_argument(
-        "--batch", "-b", help="set training batch size", type=int, default=16)
+        "--batch", "-b", help="set training batch size", type=int, default=20)
     parser.add_argument(
         "--train_method", "-t", help="train on full data or train by batch", type=int, default=1)
     args = parser.parse_args()
     model_path = args.model_path
     colab_path = '/content/ERFNet_TF_2.0/'
-    data_dir = colab_path + "dataset/"
+    data_dir = model_path + "dataset/"
     data_h5 = data_dir + 'data.h5'
+    stuff_h5 = data_dir + 'stuff.h5'
     history_file = model_path + "history.h5"
     width, height = args.width, args.height
     data_limit = args.limit
@@ -156,30 +159,30 @@ if __name__ == '__main__':
     history = h52obj(history_file)
     dataset = BDD100k(data_dir, width, height, data_limit,
                       val_split, 7, train_method)
-    data = {}
+    data = get_data(stuff_h5)
+    net = ERFNet([height, width, 3], data['n_classes'][0])
+    model = net.model
+    if os.path.isfile(history_file):
+        print("Loading weights from checkpoint")
+        model.load_weights(
+            '/content/drive/My Drive/ERFNet_TF_2.0/last_epoch/cp.ckpt')
     if train_method == 0:
-        data = dataset.data
-        data = dataset.shuffle_train_data(data)
-        net = ERFNet([height, width, 3], data['n_classes'][0])
-        model = net.model
-        model.fit(data['x_train'],
-                  data['y_train'],
+        inputs = dataset.data
+        inputs = dataset.shuffle_train_data(inputs)
+        model.fit(inputs['x_train'],
+                  inputs['y_train'],
                   epochs=n_epochs,
                   class_weight=data['weights'],
                   batch_size=batch_size,
                   callbacks=set_callbacks(model_path))
     else:
         train_batch_generator = BatchGenerator(
-            data_h5, batch_size, 900, 'train')
-        # val_batch_generator = BatchGenerator(
-        #     data_h5, batch_size, val_split, 'val')
-        data = get_data(data_h5)
-        net = ERFNet([height, width, 3], data['n_classes'][0])
-        model = net.model
+            data_h5, batch_size, data_limit-val_split, 'train')
         model.fit_generator(generator=train_batch_generator,
-                            # validation_data=val_batch_generator,
-                            # validation_freq=1,
                             epochs=n_epochs,
                             verbose=1,
                             class_weight=data['weights'],
-                            callbacks=set_callbacks(model_path))
+                            callbacks=set_callbacks(model_path),
+                            initial_epoch=history['epoch'[-1]]+1,
+                            use_multiprocessing=True,
+                            max_queue_size=100)
