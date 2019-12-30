@@ -113,12 +113,10 @@ class BDD100k():
         for i in range(n_samples):
             img_file = input_files[i]
             label_file = label_files[i]
-
             img = PIL.Image.open(img_file).resize(
                 shape, resample=PIL.Image.CUBIC)
             label_img = PIL.Image.open(label_file).resize(
                 shape, resample=PIL.Image.NEAREST)
-
             img = np.asarray(img, dtype=np.uint8)
             label_img = np.asarray(label_img, dtype=np.uint8)
 
@@ -195,6 +193,7 @@ def obj2h5(data, h5_file, mini=0, maxi=None):
                 f.create_dataset(key, data=value[mini:maxi])
             else:
                 f.create_dataset(key, data=value[mini:])
+        f.close()
 
 
 def h52obj(file, mini=0, maxi=None):
@@ -205,6 +204,7 @@ def h52obj(file, mini=0, maxi=None):
                 data[key] = value[mini:maxi]
             else:
                 data[key] = value[:]
+        f.close()
     return data
 
 
@@ -214,4 +214,5 @@ def get_data(file):
         for key, value in f.items():
             if key != 'x_train' or key != 'y_train':
                 data[key] = value[:]
+        f.close()
     return data

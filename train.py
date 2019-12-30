@@ -8,8 +8,6 @@ from tensorflow.keras.callbacks import TensorBoard
 import tensorflow as tf
 import os
 
-os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-
 
 class BatchGenerator(tf.keras.utils.Sequence):
 
@@ -183,6 +181,6 @@ if __name__ == '__main__':
                             verbose=1,
                             class_weight=data['weights'],
                             callbacks=set_callbacks(model_path),
-                            initial_epoch=history['epoch'[-1]]+1,
+                            initial_epoch=history['epoch'][-1]+1,
                             use_multiprocessing=True,
                             max_queue_size=100)
