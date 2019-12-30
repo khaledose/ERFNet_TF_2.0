@@ -44,10 +44,11 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         history['epoch'] = np.append(history['epoch'], epoch)
         obj2h5(history, history_file)
         self.draw_samples(epoch, 'train')
+        self.draw_curves(history)
 
     def draw_curves(self, history):
-        draw_training_curve(history['train_loss'], history['val_loss'],
-                            model_path+"loss.png", "Loss over time", "Loss", "lower right")
+        # draw_training_curve(history['train_loss'], history['val_loss'],
+        #                     model_path+"loss.png", "Loss over time", "Loss", "lower right")
         draw_training_curve(history['train_iou'], history['val_iou'],
                             model_path+"iou.png", "IoU over time", "IoU", "lower right")
 
@@ -136,7 +137,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--epoch", "-e", help="set training number of epochs", type=int, default=150)
     parser.add_argument(
-        "--batch", "-b", help="set training batch size", type=int, default=20)
+        "--batch", "-b", help="set training batch size", type=int, default=16)
     parser.add_argument(
         "--train_method", "-t", help="train on full data or train by batch", type=int, default=1)
     args = parser.parse_args()
@@ -181,6 +182,7 @@ if __name__ == '__main__':
                             verbose=1,
                             class_weight=data['weights'],
                             callbacks=set_callbacks(model_path),
-                            initial_epoch=history['epoch'][-1]+1,
+                            initial_epoch=int(history['epoch'][-1]+1),
                             use_multiprocessing=True,
+                            workers=10,
                             max_queue_size=100)
