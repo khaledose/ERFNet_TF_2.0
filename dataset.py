@@ -45,11 +45,12 @@ class BDD100k():
             if train_method == 0:
                 self.data = h52obj(self.h5_file, 0, limit)
             else:
-                self.data = h52obj(self.h5_file, maxi=val_limit*2)
-                self.data = self.prepare_data(
-                    data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
-                obj2h5(self.data, self.h5_stuff)
-                self.data = None
+                if not os.path.isfile(self.h5_stuff):
+                    self.data = h52obj(self.h5_file, maxi=val_limit*2)
+                    self.data = self.prepare_data(
+                        data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
+                    obj2h5(self.data, self.h5_stuff)
+                    self.data = None
             return
         print("CREATING DATA")
         print("- Getting list of files")
@@ -193,6 +194,7 @@ def obj2h5(data, h5_file, mini=0, maxi=None):
                 f.create_dataset(key, data=value[mini:maxi])
             else:
                 f.create_dataset(key, data=value[mini:])
+        f.swmr_mode = Trueb
         f.close()
 
 
@@ -200,6 +202,7 @@ def h52obj(file, mini=0, maxi=None):
     data = {}
     with h5py.File(file, 'r') as f:
         for key, value in f.items():
+            value.id.refresh()
             if maxi != None:
                 data[key] = value[mini:maxi]
             else:
@@ -212,6 +215,7 @@ def get_data(file):
     data = {}
     with h5py.File(file, 'r') as f:
         for key, value in f.items():
+            value.id.refresh()
             if key != 'x_train' or key != 'y_train':
                 data[key] = value[:]
         f.close()

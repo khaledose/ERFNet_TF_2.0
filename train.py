@@ -1,12 +1,18 @@
+import tensorflow as tf
+from tensorflow.keras.callbacks import TensorBoard
 import argparse
 import datetime
 from model_arch import ERFNet
 from dataset import BDD100k, obj2h5, h52obj, get_data
 from visualizer import draw_training_curve, viz_segmentation_pairs
 import numpy as np
-from tensorflow.keras.callbacks import TensorBoard
-import tensorflow as tf
 import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
+
+tf.config.set_soft_device_placement(True)
+tf.debugging.set_log_device_placement(True)
 
 
 class BatchGenerator(tf.keras.utils.Sequence):
@@ -35,7 +41,7 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         if train_method == 1:
             iou_v = self.print_iou('x_val', 'y_val', val_split)
             self.save_best_model(iou_v)
-            print("Epoch " + str(epoch+1) + ": Validation IoU= " + str(iou_v))
+            print("Epoch " + str(epoch+1) + ": Validation IoU = " + str(iou_v))
             history['val_iou'] = np.append(history['val_iou'], iou_v)
             self.draw_samples(epoch, 'val')
 
@@ -147,6 +153,7 @@ if __name__ == '__main__':
     data_h5 = data_dir + 'data.h5'
     stuff_h5 = data_dir + 'stuff.h5'
     history_file = model_path + "history.h5"
+    weights_file = model_path + 'last_epoch/cp.ckpt'
     width, height = args.width, args.height
     data_limit = args.limit
     val_split = args.vlimit
@@ -161,10 +168,12 @@ if __name__ == '__main__':
     data = get_data(stuff_h5)
     net = ERFNet([height, width, 3], data['n_classes'][0])
     model = net.model
+    initial_epoch = 0
+    if len(history['epoch']) > 0:
+        initial_epoch = int(history['epoch'][-1]+1)
     if os.path.isfile(history_file):
         print("Loading weights from checkpoint")
-        model.load_weights(
-            '/content/drive/My Drive/ERFNet_TF_2.0/last_epoch/cp.ckpt')
+        model.load_weights(weights_file)
     if train_method == 0:
         inputs = dataset.data
         inputs = dataset.shuffle_train_data(inputs)
@@ -173,16 +182,17 @@ if __name__ == '__main__':
                   epochs=n_epochs,
                   class_weight=data['weights'],
                   batch_size=batch_size,
+                  initial_epoch=initial_epoch,
                   callbacks=set_callbacks(model_path))
     else:
         train_batch_generator = BatchGenerator(
             data_h5, batch_size, data_limit-val_split, 'train')
-        model.fit_generator(generator=train_batch_generator,
-                            epochs=n_epochs,
-                            verbose=1,
-                            class_weight=data['weights'],
-                            callbacks=set_callbacks(model_path),
-                            initial_epoch=int(history['epoch'][-1]+1),
-                            use_multiprocessing=True,
-                            workers=10,
-                            max_queue_size=100)
+        model.fit(train_batch_generator,
+                  epochs=n_epochs,
+                  verbose=1,
+                  class_weight=data['weights'],
+                  callbacks=set_callbacks(model_path),
+                  initial_epoch=initial_epoch,
+                  use_multiprocessing=True,
+                  workers=10,
+                  max_queue_size=100)
