@@ -3,7 +3,7 @@ from tensorflow.keras.callbacks import TensorBoard
 import argparse
 import datetime
 from model_arch import ERFNet
-from dataset import BDD100k, obj2h5, h52obj, get_data
+from dataset import BDD100k, obj2h5, h52obj, get_training_helpers
 from visualizer import draw_training_curve, viz_segmentation_pairs
 import numpy as np
 import os
@@ -17,8 +17,7 @@ tf.debugging.set_log_device_placement(True)
 
 class BatchGenerator(tf.keras.utils.Sequence):
 
-    def __init__(self, data_h5, batch_size, n_samples, state):
-        self.data_h5 = data_h5
+    def __init__(self, batch_size, n_samples, state):
         self.batch_size = batch_size
         self.n_samples = n_samples
         self.state = state
@@ -28,7 +27,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
 
     def __getitem__(self, idx):
         mini, maxi = idx * self.batch_size, (idx+1) * self.batch_size
-        data = h52obj(self.data_h5, mini, maxi)
+        data = dataset.prepare_batch(mini, maxi)
         batch_x = data['x_'+self.state]
         batch_y = data['y_'+self.state]
         return np.array(batch_x), np.array(batch_y)
@@ -145,8 +144,11 @@ if __name__ == '__main__':
     parser.add_argument(
         "--batch", "-b", help="set training batch size", type=int, default=16)
     parser.add_argument(
-        "--train_method", "-t", help="train on full data or train by batch", type=int, default=1)
+        "--train_method", "-t", help="0 =  full data, 1 = by batch", type=int, default=1)
+    parser.add_argument(
+        "--data_method", "-d", help="0 =  full data on h5, 1 = by batch", type=int, default=1)
     args = parser.parse_args()
+
     model_path = args.model_path
     colab_path = '/content/ERFNet_TF_2.0/'
     data_dir = model_path + "dataset/"
@@ -160,17 +162,22 @@ if __name__ == '__main__':
     n_epochs = args.epoch
     batch_size = args.batch
     train_method = args.train_method
+    data_method = args.data_method
+
     if not os.path.isfile(history_file):
         prepare_history(history_file)
     history = h52obj(history_file)
-    dataset = BDD100k(data_dir, width, height, data_limit,
-                      val_split, 7, train_method)
-    data = get_data(stuff_h5)
-    net = ERFNet([height, width, 3], data['n_classes'][0])
-    model = net.model
+
     initial_epoch = 0
     if len(history['epoch']) > 0:
         initial_epoch = int(history['epoch'][-1]+1)
+
+    dataset = BDD100k(data_dir, width, height, data_limit,
+                      val_split, 7, train_method, data_method)
+    data = get_training_helpers(stuff_h5)
+    net = ERFNet([height, width, 3], data['n_classes'][0])
+    model = net.model
+
     if os.path.isfile(history_file):
         print("Loading weights from checkpoint")
         model.load_weights(weights_file)
@@ -186,7 +193,7 @@ if __name__ == '__main__':
                   callbacks=set_callbacks(model_path))
     else:
         train_batch_generator = BatchGenerator(
-            data_h5, batch_size, data_limit-val_split, 'train')
+            batch_size, data_limit-val_split, 'train')
         model.fit(train_batch_generator,
                   epochs=n_epochs,
                   verbose=1,
