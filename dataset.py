@@ -83,27 +83,28 @@ class BDD100k():
                 self.data = None
             print("- DONE!")
         else:
-            self.file_data = self.create_data_dict(
-                self.data_dir, X_train_subdir="images", Y_train_subdir="labels", start=0, end=val_limit*2)
-            n_samples = len(self.file_data["x_train"])
-            est_size = n_samples*width*height*(3+1)/(1024*1000)
-            print("- Estimated data size is {} MB (+ overhead)".format(est_size))
+            if not os.path.isfile(self.h5_stuff):
+                self.file_data = self.create_data_dict(
+                    self.data_dir, X_train_subdir="images", Y_train_subdir="labels", start=0, end=val_limit*2)
+                n_samples = len(self.file_data["x_train"])
+                est_size = n_samples*width*height*(3+1)/(1024*1000)
+                print("- Estimated data size is {} MB (+ overhead)".format(est_size))
 
-            print("- Loading image files and converting to arrays")
+                print("- Loading image files and converting to arrays")
 
-            self.data["x_train"], self.data["y_train"] = self.load_image_and_seglabels(
-                input_files=self.file_data["x_train"],
-                label_files=self.file_data["y_train"],
-                colormap=idcolormap,
-                shape=self.shape,
-                n_channels=self.n_channels,
-                label_chanel_axis=self.label_chanel_axis)
-            self.data = self.prepare_data(
-                data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
-            obj2h5(self.data, self.h5_stuff)
-            if train_method == 1:
-                self.data = None
-            print("- DONE!")
+                self.data["x_train"], self.data["y_train"] = self.load_image_and_seglabels(
+                    input_files=self.file_data["x_train"],
+                    label_files=self.file_data["y_train"],
+                    colormap=idcolormap,
+                    shape=self.shape,
+                    n_channels=self.n_channels,
+                    label_chanel_axis=self.label_chanel_axis)
+                self.data = self.prepare_data(
+                    data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
+                obj2h5(self.data, self.h5_stuff)
+                if train_method == 1:
+                    self.data = None
+                print("- DONE!")
 
     def prepare_batch(self, start, end):
         print("CREATING DATA")
@@ -126,10 +127,10 @@ class BDD100k():
             label_chanel_axis=self.label_chanel_axis)
         return self.data
 
-    def create_file_lists(self, inputs_dir, labels_dir, limit):
-        label_files = glob.glob(os.path.join(labels_dir, "*.png"))[:limit]
+    def create_file_lists(self, inputs_dir, labels_dir, start=0, end=16):
+        label_files = glob.glob(os.path.join(labels_dir, "*.png"))[start:end]
         file_ids = [os.path.basename(f).replace(
-            "_L.png", ".png") for f in label_files[:limit]]
+            "_L.png", ".png") for f in label_files[start:end]]
         input_files = [os.path.join(inputs_dir, file_id[:-3]+'jpg')
                        for file_id in file_ids]
         print(len(input_files), len(label_files))
@@ -139,7 +140,7 @@ class BDD100k():
         data = {}
         data["x_train"], data["y_train"] = self.create_file_lists(
             inputs_dir=os.path.join(datadir, X_train_subdir),
-            labels_dir=os.path.join(datadir, Y_train_subdir), limit=end)
+            labels_dir=os.path.join(datadir, Y_train_subdir), start=start, end=end)
         return data
 
     def load_image_and_seglabels(self, input_files, label_files, colormap, shape=(32, 32), n_channels=3, label_chanel_axis=False):
