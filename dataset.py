@@ -83,26 +83,27 @@ class BDD100k():
                 self.data = None
             print("- DONE!")
         else:
-                self.file_data = self.create_data_dict(self.data_dir, X_train_subdir="images", Y_train_subdir="labels", start=0, end=val_limit*2)
-                n_samples = len(self.file_data["x_train"])
-                est_size = n_samples*width*height*(3+1)/(1024*1000)
-                print("- Estimated data size is {} MB (+ overhead)".format(est_size))
+            self.file_data = self.create_data_dict(
+                self.data_dir, X_train_subdir="images", Y_train_subdir="labels", start=0, end=val_limit*2)
+            n_samples = len(self.file_data["x_train"])
+            est_size = n_samples*width*height*(3+1)/(1024*1000)
+            print("- Estimated data size is {} MB (+ overhead)".format(est_size))
 
-                print("- Loading image files and converting to arrays")
+            print("- Loading image files and converting to arrays")
 
-                self.data["x_train"], self.data["y_train"] = self.load_image_and_seglabels(
-                    input_files=self.file_data["x_train"],
-                    label_files=self.file_data["y_train"],
-                    colormap=idcolormap,
-                    shape=self.shape,
-                    n_channels=self.n_channels,
-                    label_chanel_axis=self.label_chanel_axis)
-                self.data = self.prepare_data(data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
-                obj2h5(self.data, self.h5_stuff)
-                if train_method == 1:
-                    self.data = None
-                print("- DONE!")
-
+            self.data["x_train"], self.data["y_train"] = self.load_image_and_seglabels(
+                input_files=self.file_data["x_train"],
+                label_files=self.file_data["y_train"],
+                colormap=idcolormap,
+                shape=self.shape,
+                n_channels=self.n_channels,
+                label_chanel_axis=self.label_chanel_axis)
+            self.data = self.prepare_data(
+                data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
+            obj2h5(self.data, self.h5_stuff)
+            if train_method == 1:
+                self.data = None
+            print("- DONE!")
 
     def prepare_batch(self, start, end):
         print("CREATING DATA")
@@ -237,7 +238,6 @@ def obj2h5(data, h5_file, mini=0, maxi=None):
                 f.create_dataset(key, data=value[mini:maxi])
             else:
                 f.create_dataset(key, data=value[mini:])
-        f.swmr_mode = True
         f.close()
 
 
@@ -245,7 +245,6 @@ def h52obj(file, mini=0, maxi=None):
     data = {}
     with h5py.File(file, 'r') as f:
         for key, value in f.items():
-            value.id.refresh()
             if maxi != None:
                 data[key] = value[mini:maxi]
             else:
