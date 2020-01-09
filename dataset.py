@@ -14,8 +14,6 @@ label_colormap = {
     "Single White": (255, 0, 255, 255),
     "Single Yellow": (0, 255, 255, 255)
 }
-
-
 id2label = [
     'Void',
     'Crosswalk',
@@ -31,7 +29,7 @@ idcolormap = [label_colormap[label] for label in id2label]
 
 
 class BDD100k():
-    def __init__(self, data_dir, width, height, limit, val_limit, n_classes, train_method, data_method):
+    def __init__(self, data_dir, width, height, limit, val_limit, n_classes, train_method):
         self.data_dir = data_dir
         self.h5_file = self.data_dir+"data.h5"
         self.h5_stuff = self.data_dir+"stuff.h5"
@@ -40,100 +38,52 @@ class BDD100k():
         self.n_channels = 3
         self.label_chanel_axis = False
         self.data = {}
-        if data_method == 0:
+        self.stuff = {}
+        if train_method == 0:
             if os.path.isfile(self.h5_file):
-                print("Data H5 "+self.h5_file+" is found")
-                if train_method == 0:
-                    self.data = h52obj(self.h5_file, 0, limit)
-                else:
-                    if not os.path.isfile(self.h5_stuff):
-                        self.data = h52obj(self.h5_file, maxi=val_limit*2)
-                        self.data = self.prepare_data(
-                            data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
-                        obj2h5(self.data, self.h5_stuff)
-                        self.data = None
-                return
-            print("CREATING DATA")
-            print("- Getting list of files")
-            self.file_data = self.create_data_dict(
-                self.data_dir, X_train_subdir="images", Y_train_subdir="labels", start=0, end=limit)
-            n_samples = len(self.file_data["x_train"])
+                self.data = h52obj(self.h5_file, 0, limit)
+            else:
+                self.data = self.prepare_batch(val_limit, limit)
+                obj2h5(self.data, self.h5_file, mini=val_limit)
 
-            est_size = n_samples*width*height*(3+1)/(1024*1000)
-            print("- Estimated data size is {} MB (+ overhead)".format(est_size))
-
-            print("- Loading image files and converting to arrays")
-
-            self.data["x_train"], self.data["y_train"] = self.load_image_and_seglabels(
-                input_files=self.file_data["x_train"],
-                label_files=self.file_data["y_train"],
-                colormap=idcolormap,
-                shape=self.shape,
-                n_channels=self.n_channels,
-                label_chanel_axis=self.label_chanel_axis)
-
-            print("- H5pying the data to:", self. h5_file)
-            obj2h5(self.data, self.h5_file, mini=val_limit)
-            self.data = None
-            self.data = h52obj(self.h5_file, maxi=val_limit*2)
-            self.data = self.prepare_data(
-                data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
-            obj2h5(self.data, self.h5_stuff)
-            if train_method == 1:
+            if os.path.isfile(self.h5_stuff):
+                self.stuff = h52obj(self.h5_stuff)
+            else:
+                self.stuff = self.prepare_batch(0, val_limit*2)
+                self.stuff = self.prepare_data(
+                    data=self.stuff, n_classes=n_classes, n_valid=val_limit)
+                obj2h5(self.stuff, self.h5_stuff)
+        elif train_method == 1:
+            if not os.path.isfile(self.h5_file):
+                self.data = self.prepare_batch(val_limit, limit)
+                obj2h5(self.data, self.h5_file, mini=val_limit)
                 self.data = None
-            print("- DONE!")
-        else:
             if not os.path.isfile(self.h5_stuff):
-                self.file_data = self.create_data_dict(
-                    self.data_dir, X_train_subdir="images", Y_train_subdir="labels", start=0, end=val_limit*2)
-                n_samples = len(self.file_data["x_train"])
-                est_size = n_samples*width*height*(3+1)/(1024*1000)
-                print("- Estimated data size is {} MB (+ overhead)".format(est_size))
-
-                print("- Loading image files and converting to arrays")
-
-                self.data["x_train"], self.data["y_train"] = self.load_image_and_seglabels(
-                    input_files=self.file_data["x_train"],
-                    label_files=self.file_data["y_train"],
-                    colormap=idcolormap,
-                    shape=self.shape,
-                    n_channels=self.n_channels,
-                    label_chanel_axis=self.label_chanel_axis)
-                self.data = self.prepare_data(
-                    data=self.data, n_classes=n_classes, valid_from_train=True, n_valid=val_limit)
-                obj2h5(self.data, self.h5_stuff)
-                if train_method == 1:
-                    self.data = None
-                print("- DONE!")
+                self.stuff = self.prepare_batch(0, val_limit*2)
+                self.stuff = self.prepare_data(
+                    data=self.stuff, n_classes=n_classes, n_valid=val_limit)
+                obj2h5(self.stuff, self.h5_stuff)
+                self.stuff = None
 
     def prepare_batch(self, start, end):
-        print("CREATING DATA")
-        print("- Getting list of files")
-        self.file_data = self.create_data_dict(
+        data = {}
+        file_data = self.create_data_dict(
             self.data_dir, X_train_subdir="images", Y_train_subdir="labels", start=start, end=end)
-        n_samples = len(self.file_data["x_train"])
-
-        est_size = n_samples*self.width*self.height*(3+1)/(1024*1000)
-        print("- Estimated data size is {} MB (+ overhead)".format(est_size))
-
-        print("- Loading image files and converting to arrays")
-
-        self.data["x_train"], self.data["y_train"] = self.load_image_and_seglabels(
-            input_files=self.file_data["x_train"],
-            label_files=self.file_data["y_train"],
+        data["x_train"], data["y_train"] = self.load_image_and_seglabels(
+            input_files=file_data["x_train"],
+            label_files=file_data["y_train"],
             colormap=idcolormap,
             shape=self.shape,
             n_channels=self.n_channels,
             label_chanel_axis=self.label_chanel_axis)
-        return self.data
+        return data
 
     def create_file_lists(self, inputs_dir, labels_dir, start=0, end=16):
         label_files = glob.glob(os.path.join(labels_dir, "*.png"))[start:end]
         file_ids = [os.path.basename(f).replace(
-            "_L.png", ".png") for f in label_files[start:end]]
+            "_L.png", ".png") for f in label_files]
         input_files = [os.path.join(inputs_dir, file_id[:-3]+'jpg')
                        for file_id in file_ids]
-        print(len(input_files), len(label_files))
         return input_files, label_files
 
     def create_data_dict(self, datadir, X_train_subdir="train_inputs", Y_train_subdir="train_labels", start=0, end=16):
@@ -185,14 +135,12 @@ class BDD100k():
             label[np.all(img == np.array(idcolormap[id]), axis=2)] = id
         return label
 
-    def prepare_data(self, data, n_classes, valid_from_train=False, n_valid=1024, verbose=True):
+    def prepare_data(self, data, n_classes, n_valid=1024):
         print("Preparing Data Dictionary")
-        if valid_from_train:
-            data["x_val"] = data["x_train"][:n_valid]
-            data["y_val"] = data["y_train"][:n_valid]
-            print('i survived')
-            data["x_train"] = data["x_train"][n_valid:]
-            data["y_train"] = data["y_train"][n_valid:]
+        data["x_val"] = data["x_train"][:n_valid]
+        data["y_val"] = data["y_train"][:n_valid]
+        data["x_train"] = data["x_train"][n_valid:]
+        data["y_train"] = data["y_train"][n_valid:]
 
         data["x_train_viz"] = data["x_train"][n_valid:n_valid+8]
         data["y_train_viz"] = data["y_train"][n_valid:n_valid+8]
@@ -204,24 +152,12 @@ class BDD100k():
         data['n_classes'] = [n_classes]
         return data
 
-    def calculate_class_weights(self, Y, n_classes, method="paszke", c=1.02):
+    def calculate_class_weights(self, Y, n_classes, c=1.02):
         ids, counts = np.unique(Y, return_counts=True)
         n_pixels = Y.size
         p_class = np.zeros(n_classes)
         p_class[ids] = counts/n_pixels
-        if method == "paszke":
-            weights = 1/np.log(c+p_class)
-        elif method == "eigen":
-            assert False, "TODO: Implement eigen method"
-        elif method in {"eigen2", "logeigen2"}:
-            epsilon = 1e-8
-            median = np.median(p_class)
-            weights = median/(p_class+epsilon)
-            if method == "logeigen2":
-                weights = np.log(weights+1)
-        else:
-            assert False, "Incorrect choice for method"
-
+        weights = 1/np.log(c+p_class)
         return weights
 
     def shuffle_train_data(self, data):
@@ -249,17 +185,6 @@ def h52obj(file, mini=0, maxi=None):
             if maxi != None:
                 data[key] = value[mini:maxi]
             else:
-                data[key] = value[:]
-        f.close()
-    return data
-
-
-def get_training_helpers(file):
-    data = {}
-    with h5py.File(file, 'r') as f:
-        for key, value in f.items():
-            value.id.refresh()
-            if key != 'x_train' or key != 'y_train':
                 data[key] = value[:]
         f.close()
     return data

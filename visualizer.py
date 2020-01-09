@@ -95,35 +95,27 @@ def viz_segmentation_pairs(X, Y, Y2=None, colormap=None, gridshape=(2, 8), savet
 def batch2grid(imgs, rows, cols):
     assert rows > 0 and cols > 0, "rows and cols must be positive integers"
 
-    # Prepare dimensions of the grid
     n_cells = (rows*cols)
-    imgs = imgs[:n_cells]  # Only use the number of images needed to fill grid
+    imgs = imgs[:n_cells]
 
-    # Image dimensions
     n_dims = imgs.ndim
     assert n_dims == 3 or n_dims == 4, "Incorrect # of dimensions for input array"
 
-    # Deal with images that have no color channel
     if n_dims == 3:
         imgs = np.expand_dims(imgs, axis=3)
 
-    # get dimensions of image
     n_samples, img_height, img_width, n_channels = imgs.shape
 
-    # Handle case where there is not enough images in batch to fill grid
     if n_cells > n_samples:
         n_gap = n_cells - n_samples
         imgs = np.pad(imgs, pad_width=[
                       (0, n_gap), (0, 0), (0, 0), (0, 0)], mode="constant", constant_values=0)
 
-    # Reshape into grid
     grid = imgs.reshape(rows, cols, img_height, img_width,
                         n_channels).swapaxes(1, 2)
     grid = grid.reshape(rows*img_height, cols*img_width, n_channels)
 
-    # If input was flat images with no color channels, then flatten the output
     if n_dims == 3:
-        # axis 2 because batch dim has been removed
         grid = grid.squeeze(axis=2)
 
     return grid

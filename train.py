@@ -3,7 +3,7 @@ from tensorflow.keras.callbacks import TensorBoard
 import argparse
 import datetime
 from model_arch import ERFNet
-from dataset import BDD100k, obj2h5, h52obj, get_training_helpers
+from dataset import BDD100k, obj2h5, h52obj
 from visualizer import draw_training_curve, viz_segmentation_pairs
 import numpy as np
 import os
@@ -12,7 +12,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 tf.config.set_soft_device_placement(True)
-tf.debugging.set_log_device_placement(True)
 
 
 class BatchGenerator(tf.keras.utils.Sequence):
@@ -28,32 +27,27 @@ class BatchGenerator(tf.keras.utils.Sequence):
     def __getitem__(self, idx):
         mini, maxi = idx * self.batch_size, (idx+1) * self.batch_size
         data = dataset.prepare_batch(mini, maxi)
-        batch_x = data['x_'+self.state]
-        batch_y = data['y_'+self.state]
-        return np.array(batch_x), np.array(batch_y)
+        return np.array(data['x_'+self.state]), np.array(data['y_'+self.state])
 
 
 class HistoryCallback(tf.keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
-        iou_t = self.print_iou('x_train', 'y_train', val_split)
+        iou_t = self.print_iou('train', val_split)
+        iou_v = self.print_iou('val', val_split)
+        self.save_best_model(iou_v)
 
-        if train_method == 1:
-            iou_v = self.print_iou('x_val', 'y_val', val_split)
-            self.save_best_model(iou_v)
-            print("Epoch " + str(epoch+1) + ": Validation IoU = " + str(iou_v))
-            history['val_iou'] = np.append(history['val_iou'], iou_v)
-            self.draw_samples(epoch, 'val')
-
+        print("Epoch " + str(epoch+1) + ": Validation IoU = " + str(iou_v))
+        history['val_iou'] = np.append(history['val_iou'], iou_v)
         print("Epoch "+str(epoch+1)+": Train IoU = " + str(iou_t))
         history['train_iou'] = np.append(history['train_iou'], iou_t)
+
         history['epoch'] = np.append(history['epoch'], epoch)
         obj2h5(history, history_file)
+        self.draw_samples(epoch, 'val')
         self.draw_samples(epoch, 'train')
         self.draw_curves(history)
 
     def draw_curves(self, history):
-        # draw_training_curve(history['train_loss'], history['val_loss'],
-        #                     model_path+"loss.png", "Loss over time", "Loss", "lower right")
         draw_training_curve(history['train_iou'], history['val_iou'],
                             model_path+"iou.png", "IoU over time", "IoU", "lower right")
 
@@ -62,24 +56,24 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         if iou.shape[0] == 0 or iou_v > np.amax(iou):
             model.save_weights(model_path+'best_model/cp.ckpt')
 
-    def draw_samples(self, epoch, x):
+    def draw_samples(self, epoch, state):
         preds_v = []
         viz_img_template = os.path.join(
             model_path, "samples", "{}", "epoch_{: 07d}.jpg")
         for i in range(8):
             preds_v.append(get_predictions(
-                model, data['x_'+x][i], width, height, data['n_classes'][0], data['colormap']))
+                model, data['x_'+state][i], width, height, data['n_classes'][0], data['colormap']))
         preds_v = np.asarray(preds_v)
         viz_segmentation_pairs(
-            data['x_'+x][:8], data['y_'+x][:8], preds_v, data['colormap'], (
-                2, 4), viz_img_template.format(x, epoch))
+            data['x_'+state][:8], data['y_'+state][:8], preds_v, data['colormap'], (
+                2, 4), viz_img_template.format(state, epoch))
 
-    def print_iou(self, x, y, n):
+    def print_iou(self, state, n):
         iou = 0
         for i in range(n):
             mask = get_predictions(
-                model, data[x][i], width, height, data['n_classes'][0], data['colormap'])
-            iou += calculate_iou(data[y][i], mask)
+                model, data['x_'+state][i], width, height, data['n_classes'][0], data['colormap'])
+            iou += calculate_iou(data['y_'+state][i], mask)
         iou = iou/n
         return iou
 
@@ -119,8 +113,6 @@ def set_callbacks(path):
         log_dir=log_dir, update_freq='batch', histogram_freq=1)
 
     checkpoint_path = path+'last_epoch/cp.ckpt'
-    checkpoint_dir = os.path.dirname(checkpoint_path)
-
     cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
                                                      save_weights_only=True,
                                                      verbose=1)
@@ -145,12 +137,9 @@ if __name__ == '__main__':
         "--batch", "-b", help="set training batch size", type=int, default=16)
     parser.add_argument(
         "--train_method", "-t", help="0 =  full data, 1 = by batch", type=int, default=1)
-    parser.add_argument(
-        "--data_method", "-d", help="0 =  full data on h5, 1 = by batch", type=int, default=1)
     args = parser.parse_args()
 
     model_path = args.model_path
-    colab_path = '/content/ERFNet_TF_2.0/'
     data_dir = model_path + "dataset/"
     data_h5 = data_dir + 'data.h5'
     stuff_h5 = data_dir + 'stuff.h5'
@@ -162,7 +151,6 @@ if __name__ == '__main__':
     n_epochs = args.epoch
     batch_size = args.batch
     train_method = args.train_method
-    data_method = args.data_method
 
     if not os.path.isfile(history_file):
         prepare_history(history_file)
@@ -173,14 +161,15 @@ if __name__ == '__main__':
         initial_epoch = int(history['epoch'][-1]+1)
 
     dataset = BDD100k(data_dir, width, height, data_limit,
-                      val_split, 7, train_method, data_method)
-    data = get_training_helpers(stuff_h5)
+                      val_split, 7, train_method)
+    data = h52obj(stuff_h5)
     net = ERFNet([height, width, 3], data['n_classes'][0])
     model = net.model
 
-    if os.path.isfile(history_file):
+    if os.path.isfile(weights_file):
         print("Loading weights from checkpoint")
         model.load_weights(weights_file)
+
     if train_method == 0:
         inputs = dataset.data
         inputs = dataset.shuffle_train_data(inputs)
@@ -199,7 +188,4 @@ if __name__ == '__main__':
                   verbose=1,
                   class_weight=data['weights'],
                   callbacks=set_callbacks(model_path),
-                  initial_epoch=initial_epoch,
-                  use_multiprocessing=True,
-                  workers=10,
-                  max_queue_size=100)
+                  initial_epoch=initial_epoch)
