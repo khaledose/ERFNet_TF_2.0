@@ -39,6 +39,7 @@ class BDD100k():
         self.label_chanel_axis = False
         self.data = {}
         self.stuff = {}
+        print('Preparing Data')
         if train_method == 0:
             if os.path.isfile(self.h5_file):
                 self.data = h52obj(self.h5_file, 0, limit)
@@ -54,16 +55,17 @@ class BDD100k():
                     data=self.stuff, n_classes=n_classes, n_valid=val_limit)
                 obj2h5(self.stuff, self.h5_stuff)
         elif train_method == 1:
-            if not os.path.isfile(self.h5_file):
-                self.data = self.prepare_batch(val_limit, limit)
-                obj2h5(self.data, self.h5_file, mini=val_limit)
-                self.data = None
+            # if not os.path.isfile(self.h5_file):
+            #     self.data = self.prepare_batch(val_limit, limit)
+            #     obj2h5(self.data, self.h5_file, mini=val_limit)
+            #     self.data = None
             if not os.path.isfile(self.h5_stuff):
                 self.stuff = self.prepare_batch(0, val_limit*2)
                 self.stuff = self.prepare_data(
                     data=self.stuff, n_classes=n_classes, n_valid=val_limit)
                 obj2h5(self.stuff, self.h5_stuff)
                 self.stuff = None
+        print('Done')
 
     def prepare_batch(self, start, end):
         data = {}

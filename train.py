@@ -9,7 +9,7 @@ import numpy as np
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-
+os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda-10.1/targets/x86_64-linux/lib/"
 
 tf.config.set_soft_device_placement(True)
 
@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
     initial_epoch = 0
     if len(history['epoch']) > 0:
-        initial_epoch = int(history['epoch'][-1]+1)
+        initial_epoch = int(history['epoch'][-1])
 
     dataset = BDD100k(data_dir, width, height, data_limit,
                       val_split, 7, train_method)
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     net = ERFNet([height, width, 3], data['n_classes'][0])
     model = net.model
 
-    if os.path.isfile(weights_file):
+    if os.path.isfile(weights_file+'.index'):
         print("Loading weights from checkpoint")
         model.load_weights(weights_file)
 
