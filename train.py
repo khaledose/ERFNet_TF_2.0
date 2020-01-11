@@ -9,7 +9,6 @@ import numpy as np
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-os.environ["LD_LIBRARY_PATH"] = "/usr/local/cuda-10.1/targets/x86_64-linux/lib/"
 
 tf.config.set_soft_device_placement(True)
 
@@ -26,7 +25,7 @@ class BatchGenerator(tf.keras.utils.Sequence):
 
     def __getitem__(self, idx):
         mini, maxi = idx * self.batch_size, (idx+1) * self.batch_size
-        data = dataset.prepare_batch(mini, maxi)
+        data = dataset.prepare_batch('train', mini, maxi)
         return np.array(data['x_'+self.state]), np.array(data['y_'+self.state])
 
 
@@ -137,6 +136,8 @@ if __name__ == '__main__':
         "--batch", "-b", help="set training batch size", type=int, default=16)
     parser.add_argument(
         "--train_method", "-t", help="0 =  full data, 1 = by batch", type=int, default=1)
+    parser.add_argument(
+        "--val_split", "-v", help="true =  val from train data, false = separate val set", type=bool, default=False)
     args = parser.parse_args()
 
     model_path = args.model_path
@@ -151,6 +152,7 @@ if __name__ == '__main__':
     n_epochs = args.epoch
     batch_size = args.batch
     train_method = args.train_method
+    val_split = args.val_split
 
     if not os.path.isfile(history_file):
         prepare_history(history_file)
@@ -161,8 +163,8 @@ if __name__ == '__main__':
         initial_epoch = int(history['epoch'][-1])
 
     dataset = BDD100k(data_dir, width, height, data_limit,
-                      val_split, 7, train_method)
-    data = h52obj(stuff_h5)
+                      val_split, 7, train_method, val_split)
+    data = dataset.stuff
     net = ERFNet([height, width, 3], data['n_classes'][0])
     model = net.model
 

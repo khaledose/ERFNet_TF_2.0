@@ -29,7 +29,7 @@ idcolormap = [label_colormap[label] for label in id2label]
 
 
 class BDD100k():
-    def __init__(self, data_dir, width, height, limit, val_limit, n_classes, train_method):
+    def __init__(self, data_dir, width, height, limit, val_limit, n_classes, train_method, val_from_train=False):
         self.data_dir = data_dir
         self.h5_file = self.data_dir+"data.h5"
         self.h5_stuff = self.data_dir+"stuff.h5"
@@ -39,41 +39,34 @@ class BDD100k():
         self.label_chanel_axis = False
         self.data = {}
         self.stuff = {}
+        if not val_from_train:
+            val_limit = 0
         print('Preparing Data')
         if train_method == 0:
             if os.path.isfile(self.h5_file):
                 self.data = h52obj(self.h5_file, 0, limit)
             else:
-                self.data = self.prepare_batch(val_limit, limit)
-                obj2h5(self.data, self.h5_file, mini=val_limit)
+                self.data = self.prepare_batch('train', val_limit, limit)
+                obj2h5(self.data, self.h5_file)
 
-            if os.path.isfile(self.h5_stuff):
-                self.stuff = h52obj(self.h5_stuff)
-            else:
-                self.stuff = self.prepare_batch(0, val_limit*2)
-                self.stuff = self.prepare_data(
-                    data=self.stuff, n_classes=n_classes, n_valid=val_limit)
-                obj2h5(self.stuff, self.h5_stuff)
-        elif train_method == 1:
-            # if not os.path.isfile(self.h5_file):
-            #     self.data = self.prepare_batch(val_limit, limit)
-            #     obj2h5(self.data, self.h5_file, mini=val_limit)
-            #     self.data = None
-            if not os.path.isfile(self.h5_stuff):
-                self.stuff = self.prepare_batch(0, val_limit*2)
-                self.stuff = self.prepare_data(
-                    data=self.stuff, n_classes=n_classes, n_valid=val_limit)
-                obj2h5(self.stuff, self.h5_stuff)
-                self.stuff = None
+        if os.path.isfile(self.h5_stuff):
+            self.stuff = h52obj(self.h5_stuff)
+        else:
+            if not val_from_train:
+                val_data = self.prepare_batch('val', 0, val_limit)
+            train_data = self.prepare_batch('train', 0, val_limit)
+            self.stuff = self.prepare_data(
+                train_data, val_data, n_classes=n_classes, n_valid=val_limit, val_from_train=val_from_train)
+            obj2h5(self.stuff, self.h5_stuff)
         print('Done')
 
-    def prepare_batch(self, start, end):
+    def prepare_batch(self, state, start, end):
         data = {}
         file_data = self.create_data_dict(
-            self.data_dir, X_train_subdir="images", Y_train_subdir="labels", start=start, end=end)
-        data["x_train"], data["y_train"] = self.load_image_and_seglabels(
-            input_files=file_data["x_train"],
-            label_files=file_data["y_train"],
+            self.data_dir, X_train_subdir=state+"/images", Y_train_subdir=state+"/labels", start=start, end=end)
+        data["x_"+state], data["y_"+state] = self.load_image_and_seglabels(
+            input_files=file_data["x_"+state],
+            label_files=file_data["y_"+state],
             colormap=idcolormap,
             shape=self.shape,
             n_channels=self.n_channels,
@@ -86,6 +79,8 @@ class BDD100k():
             "_L.png", ".png") for f in label_files]
         input_files = [os.path.join(inputs_dir, file_id[:-3]+'jpg')
                        for file_id in file_ids]
+        input_files.sort()
+        label_files.sort()
         return input_files, label_files
 
     def create_data_dict(self, datadir, X_train_subdir="train_inputs", Y_train_subdir="train_labels", start=0, end=16):
@@ -137,16 +132,25 @@ class BDD100k():
             label[np.all(img == np.array(idcolormap[id]), axis=2)] = id
         return label
 
-    def prepare_data(self, data, n_classes, n_valid=1024):
+    def prepare_data(self, train_data, val_data, n_classes, n_valid=1024, val_from_train=False):
         print("Preparing Data Dictionary")
-        data["x_val"] = data["x_train"][:n_valid]
-        data["y_val"] = data["y_train"][:n_valid]
-        data["x_train"] = data["x_train"][n_valid:]
-        data["y_train"] = data["y_train"][n_valid:]
-
-        data["x_train_viz"] = data["x_train"][n_valid:n_valid+8]
-        data["y_train_viz"] = data["y_train"][n_valid:n_valid+8]
-
+        data = {}
+        if val_from_train:
+            data["x_val"] = train_data["x_train"][:n_valid]
+            data["y_val"] = train_data["y_train"][:n_valid]
+            data["x_train"] = train_data["x_train"][n_valid:]
+            data["y_train"] = train_data["y_train"][n_valid:]
+        else:
+            data["x_val"] = val_data["x_val"]
+            data["y_val"] = val_data["y_val"]
+            data["x_train"] = train_data["x_train"]
+            data["y_train"] = train_data["y_train"]
+        train_data = None
+        val_data = None
+        data["x_train_viz"] = data["x_train"][:8]
+        data["y_train_viz"] = data["y_train"][:8]
+        data["x_val_viz"] = data["x_val"][:8]
+        data["y_val_viz"] = data["y_val"][:8]
         data['colormap'] = [(0, 0, 0), (255, 0, 0), (0, 255, 0),
                             (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
         data['weights'] = self.calculate_class_weights(
