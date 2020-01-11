@@ -39,14 +39,13 @@ class BDD100k():
         self.label_chanel_axis = False
         self.data = {}
         self.stuff = {}
-        if not val_from_train:
-            val_limit = 0
         print('Preparing Data')
         if train_method == 0:
             if os.path.isfile(self.h5_file):
                 self.data = h52obj(self.h5_file, 0, limit)
             else:
-                self.data = self.prepare_batch('train', val_limit, limit)
+                self.data = self.prepare_batch(
+                    'train', val_limit if val_from_train else 0, limit)
                 obj2h5(self.data, self.h5_file)
 
         if os.path.isfile(self.h5_stuff):
@@ -54,7 +53,8 @@ class BDD100k():
         else:
             if not val_from_train:
                 val_data = self.prepare_batch('val', 0, val_limit)
-            train_data = self.prepare_batch('train', 0, val_limit)
+            train_data = self.prepare_batch(
+                'train', 0, val_limit if val_from_train else val_limit*2)
             self.stuff = self.prepare_data(
                 train_data, val_data, n_classes=n_classes, n_valid=val_limit, val_from_train=val_from_train)
             obj2h5(self.stuff, self.h5_stuff)
@@ -63,7 +63,7 @@ class BDD100k():
     def prepare_batch(self, state, start, end):
         data = {}
         file_data = self.create_data_dict(
-            self.data_dir, X_train_subdir=state+"/images", Y_train_subdir=state+"/labels", start=start, end=end)
+            self.data_dir, state, X_train_subdir=state+"/images", Y_train_subdir=state+"/labels", start=start, end=end)
         data["x_"+state], data["y_"+state] = self.load_image_and_seglabels(
             input_files=file_data["x_"+state],
             label_files=file_data["y_"+state],
@@ -83,9 +83,9 @@ class BDD100k():
         label_files.sort()
         return input_files, label_files
 
-    def create_data_dict(self, datadir, X_train_subdir="train_inputs", Y_train_subdir="train_labels", start=0, end=16):
+    def create_data_dict(self, datadir, state, X_train_subdir="/images", Y_train_subdir="/labels", start=0, end=16):
         data = {}
-        data["x_train"], data["y_train"] = self.create_file_lists(
+        data["x_"+state], data["y_"+state] = self.create_file_lists(
             inputs_dir=os.path.join(datadir, X_train_subdir),
             labels_dir=os.path.join(datadir, Y_train_subdir), start=start, end=end)
         return data

@@ -137,7 +137,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--train_method", "-t", help="0 =  full data, 1 = by batch", type=int, default=1)
     parser.add_argument(
-        "--val_split", "-v", help="true =  val from train data, false = separate val set", type=bool, default=False)
+        "--vsplit", "-vs", help="true =  val from train data, false = separate val set", type=bool, default=False)
     args = parser.parse_args()
 
     model_path = args.model_path
@@ -152,7 +152,7 @@ if __name__ == '__main__':
     n_epochs = args.epoch
     batch_size = args.batch
     train_method = args.train_method
-    val_split = args.val_split
+    vsplit = args.vsplit
 
     if not os.path.isfile(history_file):
         prepare_history(history_file)
@@ -163,7 +163,7 @@ if __name__ == '__main__':
         initial_epoch = int(history['epoch'][-1])
 
     dataset = BDD100k(data_dir, width, height, data_limit,
-                      val_split, 7, train_method, val_split)
+                      val_split, 7, train_method, vsplit)
     data = dataset.stuff
     net = ERFNet([height, width, 3], data['n_classes'][0])
     model = net.model
@@ -184,7 +184,7 @@ if __name__ == '__main__':
                   callbacks=set_callbacks(model_path))
     else:
         train_batch_generator = BatchGenerator(
-            batch_size, data_limit-val_split, 'train')
+            batch_size, data_limit, 'train')
         model.fit(train_batch_generator,
                   epochs=n_epochs,
                   verbose=1,
