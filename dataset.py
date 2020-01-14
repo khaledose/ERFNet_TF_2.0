@@ -4,7 +4,7 @@ import os
 import PIL.Image
 import numpy as np
 import h5py
-
+import random
 label_colormap = {
     "Void": (0, 0, 0, 255),
     "Crosswalk": (255, 0, 0, 255),
@@ -37,6 +37,8 @@ class BDD100k():
         self.shape = [self.width, self.height]
         self.n_channels = 3
         self.label_chanel_axis = False
+        self.data_files = self.prepare_data_files(
+            val_from_train, limit, val_limit)
         self.data = {}
         self.stuff = {}
         print('Preparing Data')
@@ -44,29 +46,43 @@ class BDD100k():
             if os.path.isfile(self.h5_file):
                 self.data = h52obj(self.h5_file, 0, limit)
             else:
-                self.data = self.prepare_batch(
-                    'train', val_limit if val_from_train else 0, limit)
+                self.data = self.prepare_batch('train', end=limit)
                 obj2h5(self.data, self.h5_file)
 
         if os.path.isfile(self.h5_stuff):
             self.stuff = h52obj(self.h5_stuff)
         else:
-            if not val_from_train:
-                val_data = self.prepare_batch('val', 0, val_limit)
-            train_data = self.prepare_batch(
-                'train', 0, val_limit if val_from_train else val_limit*2)
+            val_data = self.prepare_batch('val')
+            train_data = self.prepare_batch('train', end=val_limit)
             self.stuff = self.prepare_data(
-                train_data, val_data, n_classes=n_classes, n_valid=val_limit, val_from_train=val_from_train)
+                train_data, val_data, n_classes=n_classes, n_valid=val_limit)
             obj2h5(self.stuff, self.h5_stuff)
         print('Done')
 
-    def prepare_batch(self, state, start, end):
+    def prepare_data_files(self, val_from_train, limit, val_limit):
+        data_files = {}
+        train_files = self.create_data_dict(
+            self.data_dir, 'train', X_train_subdir="/images", Y_train_subdir="/labels", end=limit)
+        train_files = self.shuffle_train_data(train_files)
+        if val_from_train:
+            data_files['x_train'] = train_files['x_train'][val_limit:]
+            data_files['y_train'] = train_files['y_train'][val_limit:]
+            data_files['x_val'] = train_files['x_train'][:val_limit]
+            data_files['y_val'] = train_files['y_train'][:val_limit]
+        else:
+            val_files = self.create_data_dict(
+                self.data_dir, 'val', X_train_subdir="/images", Y_train_subdir="/labels", end=val_limit)
+            data_files['x_train'] = train_files['x_train']
+            data_files['y_train'] = train_files['y_train']
+            data_files['x_val'] = val_files['x_val']
+            data_files['y_val'] = val_files['y_val']
+        return data_files
+
+    def prepare_batch(self, state, start=0, end=None):
         data = {}
-        file_data = self.create_data_dict(
-            self.data_dir, state, X_train_subdir=state+"/images", Y_train_subdir=state+"/labels", start=start, end=end)
         data["x_"+state], data["y_"+state] = self.load_image_and_seglabels(
-            input_files=file_data["x_"+state],
-            label_files=file_data["y_"+state],
+            input_files=self.data_files["x_"+state][start:end],
+            label_files=self.data_files["y_"+state][start:end],
             colormap=idcolormap,
             shape=self.shape,
             n_channels=self.n_channels,
@@ -86,8 +102,8 @@ class BDD100k():
     def create_data_dict(self, datadir, state, X_train_subdir="/images", Y_train_subdir="/labels", start=0, end=16):
         data = {}
         data["x_"+state], data["y_"+state] = self.create_file_lists(
-            inputs_dir=os.path.join(datadir, X_train_subdir),
-            labels_dir=os.path.join(datadir, Y_train_subdir), start=start, end=end)
+            inputs_dir=os.path.join(datadir, state+X_train_subdir),
+            labels_dir=os.path.join(datadir, state+Y_train_subdir), start=start, end=end)
         return data
 
     def load_image_and_seglabels(self, input_files, label_files, colormap, shape=(32, 32), n_channels=3, label_chanel_axis=False):
@@ -132,19 +148,13 @@ class BDD100k():
             label[np.all(img == np.array(idcolormap[id]), axis=2)] = id
         return label
 
-    def prepare_data(self, train_data, val_data, n_classes, n_valid=1024, val_from_train=False):
+    def prepare_data(self, train_data, val_data, n_classes, n_valid=1024):
         print("Preparing Data Dictionary")
         data = {}
-        if val_from_train:
-            data["x_val"] = train_data["x_train"][:n_valid]
-            data["y_val"] = train_data["y_train"][:n_valid]
-            data["x_train"] = train_data["x_train"][n_valid:]
-            data["y_train"] = train_data["y_train"][n_valid:]
-        else:
-            data["x_val"] = val_data["x_val"]
-            data["y_val"] = val_data["y_val"]
-            data["x_train"] = train_data["x_train"]
-            data["y_train"] = train_data["y_train"]
+        data["x_val"] = val_data["x_val"]
+        data["y_val"] = val_data["y_val"]
+        data["x_train"] = train_data["x_train"]
+        data["y_train"] = train_data["y_train"]
         train_data = None
         val_data = None
         data["x_train_viz"] = data["x_train"][:8]
@@ -153,8 +163,7 @@ class BDD100k():
         data["y_val_viz"] = data["y_val"][:8]
         data['colormap'] = [(0, 0, 0), (255, 0, 0), (0, 255, 0),
                             (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
-        data['weights'] = self.calculate_class_weights(
-            data["y_train"][n_valid:], n_classes)
+        data['weights'] = [1.43153438, 46.09928655, 50.26547627, 48.96395612, 46.30125866, 41.71282607, 49.49144053]
         data['n_classes'] = [n_classes]
         return data
 
@@ -167,10 +176,15 @@ class BDD100k():
         return weights
 
     def shuffle_train_data(self, data):
-        n_samples = len(data["y_train"])
-        permutation = list(np.random.permutation(n_samples))
-        data["x_train"] = data["x_train"][permutation]
-        data["y_train"] = data["y_train"][permutation]
+        # n_samples = len(data["y_train"])
+        # permutation = list(np.random.permutation(n_samples))
+        # data["x_train"] = data["x_train"][permutation]
+        # data["y_train"] = data["y_train"][permutation]
+        a, b = data['x_train'], data['y_train']
+        c = list(zip(a, b))
+        random.shuffle(c)
+        a, b = zip(*c)
+        data['x_train'], data['y_train'] = a, b
         return data
 
 

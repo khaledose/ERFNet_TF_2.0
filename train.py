@@ -7,10 +7,6 @@ from dataset import BDD100k, obj2h5, h52obj
 from visualizer import draw_training_curve, viz_segmentation_pairs
 import numpy as np
 import os
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-
-tf.config.set_soft_device_placement(True)
 
 
 class BatchGenerator(tf.keras.utils.Sequence):
