@@ -1,4 +1,4 @@
-from __future__ import print_function, division, unicode_literals
+ lo;from __future__ import print_function, division, unicode_literals
 import glob
 import os
 import PIL.Image
@@ -76,6 +76,8 @@ class BDD100k():
             data_files['y_train'] = train_files['y_train']
             data_files['x_val'] = val_files['x_val']
             data_files['y_val'] = val_files['y_val']
+        for key in data_files.keys():
+            print(key, len(data_files[key]))
         return data_files
 
     def prepare_batch(self, state, start=0, end=None):

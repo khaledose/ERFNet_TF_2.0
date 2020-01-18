@@ -137,7 +137,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     model_path = args.model_path
-    data_dir = model_path + "dataset/"
+    data_dir = './dataset/' #model_path + "dataset/"
     data_h5 = data_dir + 'data.h5'
     stuff_h5 = data_dir + 'stuff.h5'
     history_file = model_path + "history.h5"
@@ -156,7 +156,7 @@ if __name__ == '__main__':
 
     initial_epoch = 0
     if len(history['epoch']) > 0:
-        initial_epoch = int(history['epoch'][-1])
+        initial_epoch = int(history['epoch'][-1]) + 1
 
     dataset = BDD100k(data_dir, width, height, data_limit,
                       val_split, 7, train_method, vsplit)
