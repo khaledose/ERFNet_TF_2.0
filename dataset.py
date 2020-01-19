@@ -1,4 +1,4 @@
- lo;from __future__ import print_function, division, unicode_literals
+from __future__ import print_function, division, unicode_literals
 import glob
 import os
 import PIL.Image
