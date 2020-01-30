@@ -32,14 +32,13 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         iou_v = self.print_iou('val', val_split)
         self.save_best_model(iou_v)
 
-        print("Epoch " + str(epoch+1) + ":\nValidation IoU = " +
-              str("%2f" % iou_v*100) + "%")
-        history['val_iou'] = np.append(history['val_iou'], iou_v)
-        print("Train IoU = " +
-              str("%2f" % iou_t*100) + "%")
-        history['train_iou'] = np.append(history['train_iou'], iou_t)
+        print("Validation IoU = {:.2%}".format(iou_v))
+        print("Train IoU = {:.2%}".format(iou_t))
 
+        history['val_iou'] = np.append(history['val_iou'], iou_v)
+        history['train_iou'] = np.append(history['train_iou'], iou_t)
         history['epoch'] = np.append(history['epoch'], epoch)
+
         obj2h5(history, history_file)
         self.draw_samples(epoch, 'val')
         self.draw_samples(epoch, 'train')
@@ -65,7 +64,7 @@ class HistoryCallback(tf.keras.callbacks.Callback):
                 model, data['x_'+state+"_viz"][i], width, height, data['n_classes'][0], data['colormap']))
         preds_v = np.asarray(preds_v)
         viz_segmentation_pairs(
-            data['x_'+state+"_viz"][:8], data['y_'+state+"_viz"][:8], preds_v, data['colormap'], (
+            data['x_'+state+"_viz"], data['y_'+state+"_viz"], preds_v, data['colormap'], (
                 2, 4), viz_img_template.format(state, epoch))
 
     def print_iou(self, state, n_samples):
@@ -73,8 +72,8 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         for i in range(n_samples):
             batch = dataset.prepare_batch(state, i, i+1)
             mask = get_predictions(
-                model, batch['x_'+state], width, height, data['n_classes'][0], data['colormap'])
-            iou += calculate_iou(batch['y_'+state], mask)
+                model, batch['x_'+state][0], width, height, data['n_classes'][0], data['colormap'])
+            iou += calculate_iou(batch['y_'+state][0], mask)
         iou = iou/n_samples
         return iou
 
