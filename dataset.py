@@ -153,19 +153,16 @@ class BDD100k():
     def prepare_data(self, train_data, val_data, n_classes, n_valid=1024):
         print("Preparing Data Dictionary")
         data = {}
-        data["x_val"] = val_data["x_val"]
-        data["y_val"] = val_data["y_val"]
-        data["x_train"] = train_data["x_train"]
-        data["y_train"] = train_data["y_train"]
-        train_data = None
-        val_data = None
-        data["x_train_viz"] = data["x_train"][:8]
-        data["y_train_viz"] = data["y_train"][:8]
-        data["x_val_viz"] = data["x_val"][:8]
-        data["y_val_viz"] = data["y_val"][:8]
+        train_viz = self.prepare_batch("train", 0, 8)
+        val_viz = self.prepare_batch("val", 0, 8)
+        data["x_train_viz"] = train_viz["x_train"]
+        data["y_train_viz"] = train_viz["y_train"]
+        data["x_val_viz"] = val_viz["x_val"]
+        data["y_val_viz"] = val_viz["y_val"]
         data['colormap'] = [(0, 0, 0), (255, 0, 0), (0, 255, 0),
                             (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
-        data['weights'] = [1.43153438, 46.09928655, 50.26547627, 48.96395612, 46.30125866, 41.71282607, 49.49144053]
+        data['weights'] = [0.505229, 245.538889, 797.217035,
+                           672.597861, 263.400266, 115.537327, 697.100971]
         data['n_classes'] = [n_classes]
         return data
 
@@ -178,10 +175,6 @@ class BDD100k():
         return weights
 
     def shuffle_train_data(self, data):
-        # n_samples = len(data["y_train"])
-        # permutation = list(np.random.permutation(n_samples))
-        # data["x_train"] = data["x_train"][permutation]
-        # data["y_train"] = data["y_train"][permutation]
         a, b = data['x_train'], data['y_train']
         c = list(zip(a, b))
         random.shuffle(c)

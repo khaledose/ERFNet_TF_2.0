@@ -8,9 +8,9 @@ from tensorflow.keras.losses import SparseCategoricalCrossentropy
 
 class ERFNet:
     # ================================ INIT ===============================================
-    def __init__(self, shape, num_classes):
+    def __init__(self, shape, num_classes, isTraining=True):
         self.input_shape = shape
-        self.trainMode = True
+        self.trainMode = isTraining
         self.num_classes = num_classes
         self.model = self._get_model()
 
@@ -79,12 +79,13 @@ class ERFNet:
 
         x = BatchNormalization(epsilon=1e-03)(x)
 
-        x = Dropout(rate=dropout)(x)
+        if self.trainMode:
+            x = Dropout(rate=dropout)(x)
+            x = add([x, layer])
+        else:
+            x = add([x, layer])
 
-        x = add([layer, x])
-
-        x = ReLU()(x)
-        return x
+        return ReLU()(x)
 
     # ================================ DOWNSAMPLER ========================================
     def _downsampler_block(self, layer, filter):
@@ -97,8 +98,9 @@ class ERFNet:
 
         x = concatenate([x2, x1])
 
-        x = ReLU()(x)
-        return x
+        x = BatchNormalization(epsilon=1e-03)(x)
+
+        return ReLU()(x)
 
     def _upsampler_block(self, layer, filter):
         x = Conv2DTranspose(

@@ -7,6 +7,7 @@ from dataset import BDD100k, obj2h5, h52obj
 from visualizer import draw_training_curve, viz_segmentation_pairs
 import numpy as np
 import os
+import math
 
 
 class BatchGenerator(tf.keras.utils.Sequence):
@@ -31,9 +32,11 @@ class HistoryCallback(tf.keras.callbacks.Callback):
         iou_v = self.print_iou('val', val_split)
         self.save_best_model(iou_v)
 
-        print("Epoch " + str(epoch+1) + ": Validation IoU = " + str(iou_v))
+        print("Epoch " + str(epoch+1) + ":\nValidation IoU = " +
+              str("%2f" % iou_v*100) + "%")
         history['val_iou'] = np.append(history['val_iou'], iou_v)
-        print("Epoch "+str(epoch+1)+": Train IoU = " + str(iou_t))
+        print("Train IoU = " +
+              str("%2f" % iou_t*100) + "%")
         history['train_iou'] = np.append(history['train_iou'], iou_t)
 
         history['epoch'] = np.append(history['epoch'], epoch)
@@ -49,7 +52,9 @@ class HistoryCallback(tf.keras.callbacks.Callback):
     def save_best_model(self, iou_v):
         iou = history['val_iou']
         if iou.shape[0] == 0 or iou_v > np.amax(iou):
-            model.save_weights(model_path+'best_model/cp.ckpt')
+            path = model_path+'best_model/cp.ckpt'
+            print("Saving best model at " + path)
+            model.save_weights(path)
 
     def draw_samples(self, epoch, state):
         preds_v = []
@@ -57,19 +62,20 @@ class HistoryCallback(tf.keras.callbacks.Callback):
             model_path, "samples", "{}", "epoch_{: 07d}.jpg")
         for i in range(8):
             preds_v.append(get_predictions(
-                model, data['x_'+state][i], width, height, data['n_classes'][0], data['colormap']))
+                model, data['x_'+state+"_viz"][i], width, height, data['n_classes'][0], data['colormap']))
         preds_v = np.asarray(preds_v)
         viz_segmentation_pairs(
-            data['x_'+state][:8], data['y_'+state][:8], preds_v, data['colormap'], (
+            data['x_'+state+"_viz"][:8], data['y_'+state+"_viz"][:8], preds_v, data['colormap'], (
                 2, 4), viz_img_template.format(state, epoch))
 
-    def print_iou(self, state, n):
+    def print_iou(self, state, n_samples):
         iou = 0
-        for i in range(n):
+        for i in range(n_samples):
+            batch = dataset.prepare_batch(state, i, i+1)
             mask = get_predictions(
-                model, data['x_'+state][i], width, height, data['n_classes'][0], data['colormap'])
-            iou += calculate_iou(data['y_'+state][i], mask)
-        iou = iou/n
+                model, batch['x_'+state], width, height, data['n_classes'][0], data['colormap'])
+            iou += calculate_iou(batch['y_'+state], mask)
+        iou = iou/n_samples
         return iou
 
 
@@ -89,6 +95,8 @@ def calculate_iou(y_true, y_pred):
     intersection = np.logical_and(y_true, y_pred)
     union = np.logical_or(y_true, y_pred)
     iou_score = np.sum(intersection) / np.sum(union)
+    if math.isnan(iou_score):
+        iou_score = 0
     return iou_score
 
 
@@ -137,7 +145,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     model_path = args.model_path
-    data_dir = './dataset/' #model_path + "dataset/"
+    data_dir = './dataset/'  # model_path + "dataset/"
     data_h5 = data_dir + 'data.h5'
     stuff_h5 = data_dir + 'stuff.h5'
     history_file = model_path + "history.h5"
