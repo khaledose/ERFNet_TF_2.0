@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv2D, MaxPool2D, concatenate, BatchNormalization, Dropout, add, Conv2DTranspose, ReLU
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.losses import SparseCategoricalCrossentropy
+from tensorflow.keras.losses import CategoricalCrossentropy
 
 
 class ERFNet:
@@ -47,7 +47,7 @@ class ERFNet:
                          beta_2=0.999, decay=2e-4, epsilon=1e-08)
 
         model.compile(optimizer=optimizer,
-                      loss=SparseCategoricalCrossentropy(), metrics=None)
+                      loss=CategoricalCrossentropy(), metrics=None)
 
         if verbose:
             model.summary()

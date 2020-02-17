@@ -3,6 +3,7 @@ import tensorflow as tf
 from model_arch import ERFNet
 import cv2
 import argparse
+import PIL
 
 
 def load_model(checkpoint_path, width, height, n_classes):
@@ -12,17 +13,16 @@ def load_model(checkpoint_path, width, height, n_classes):
     return model
 
 
-def get_mask(model, im, width, height, n_classes, colormap):
-    input_data = []
-    input_data.append(im)
-    input_data = np.asarray(input_data)
-    pred_mask = model.predict(input_data)
+def get_predictions(model, im, colormap):
+    pred_mask = model.predict(np.array([im]))
     pred_mask = tf.keras.backend.eval(pred_mask)[0]
-    mask = np.zeros((height, width), dtype=np.int8)
-    for i in range(n_classes):
-        mask[pred_mask[:, :, i] >= 0.5] = i
-    mask = np.array(colormap)[mask].astype(np.uint8)
-    return mask[:, :, ::-1]
+    pred_mask[pred_mask[:, :] < 0.5] = 0
+    pred_mask = tf.argmax(pred_mask, axis=-1)
+    pred_mask = pred_mask[..., tf.newaxis]
+    pred_mask = tf.keras.backend.eval(pred_mask)
+    pred_mask = pred_mask[:, :, 0]
+    mask = np.array(colormap)[pred_mask].astype(np.uint8)
+    return mask
 
 
 if __name__ == '__main__':
@@ -44,8 +44,10 @@ if __name__ == '__main__':
     image_path = args.image
     output_path = args.output_dir
 
-    im = cv2.imread(image_path)
-    im = cv2.resize(im, (width, height))
+    img = PIL.Image.open(image_path).resize(
+        [width, height], resample=PIL.Image.CUBIC)
+    img = np.asarray(img, dtype=np.float32)
+    img = np.divide(img, 255.0)
     model = load_model(checkpoint_path, width, height, n_classes)
-    mask = get_mask(model, im, width, height, n_classes, colormap)
+    mask = get_predictions(model, img, colormap)
     cv2.imwrite(output_path, mask)
