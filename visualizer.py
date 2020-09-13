@@ -1,5 +1,5 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import PIL
 import os
 
@@ -10,25 +10,22 @@ def get_mask(mask, colormap):
     return mask
 
 
-def get_class_masks(y_true, y_pred, n_classes, colormap):
-    gt = {}
-    pred = {}
-    for i in range(n_classes):
-        im1 = np.all(y_true == colormap[i], axis=-1)
-        im2 = np.all(y_pred == colormap[i], axis=-1)
-        if(len(np.unique(im1)) < 2 and len(np.unique(im2)) < 2):
-            continue
-        im11 = np.zeros((480, 640), dtype=np.int16)
-        im22 = np.zeros((480, 640), dtype=np.int16)
-        im11[im1] = 255
-        im22[im2] = 255
-        gt[i] = im11
-        pred[i] = im22
-        im1 = None
-        im2 = None
-        im11 = None
-        im22 = None
-    return gt, pred
+def draw_samples(samples, colormap, epoch, state, saveto):
+    viz_img_template = os.path.join(
+        saveto,
+        "samples",
+        "{}",
+        "epoch_{: 07d}.jpg",
+    )
+    for i in range(8):
+        viz_segmentation_pairs(
+            X=samples[0],
+            Y=samples[1],
+            Y2=samples[2],
+            colormap=colormap,
+            gridshape=(2, 4),
+            saveto=viz_img_template.format(state, epoch)
+        )
 
 
 def draw_training_curve(train, valid, saveto, title, ylab, legend_pos):
