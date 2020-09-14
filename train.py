@@ -2,7 +2,7 @@ from tensorflow.keras.callbacks import Callback, ModelCheckpoint
 from visualizer import draw_training_curve, draw_samples
 from model import Model, BatchGenerator
 from dataset import BDD100k
-from utils import colormap
+from utils import get_colors, obj2h5, h52obj
 import numpy as np
 import argparse
 import os
@@ -37,10 +37,11 @@ class VisualizationCallback(Callback):
         self.net = model
         self.state = state
         self.saveto = saveto
+        self.colormap = dataset.colormap
 
     def on_epoch_end(self, epoch, logs=None):
         y_pred = np.array([self.net.predict(np.divide(im, 255.0)) for im in self.x])
-        draw_samples([self.x, self.y, y_pred], colormap,
+        draw_samples([self.x, self.y, y_pred], self.colormap,
                      epoch, self.state, self.saveto)
 
 
@@ -77,6 +78,15 @@ def main(args):
         state='val',
     )
     val_ds.load_images()
+
+    if not os.path.isfile(os.path.join(model_path, 'colormap.h5')):
+        colormap = get_colors(val_ds.y_files, val_ds.n_classes)
+        obj2h5({'colormap':colormap}, os.path.join(model_path, 'colormap.h5'))
+    else:
+        colormap = h52obj(os.path.join(model_path, 'colormap.h5'))['colormap']
+
+    train_ds.colormap = colormap
+    val_ds.colormap = colormap
 
     if not os.path.isfile(os.path.join(model_path, 'weights.h5')):
         train_ds.calculate_class_weights(y=train_ds.y_files[:args.train_limit])

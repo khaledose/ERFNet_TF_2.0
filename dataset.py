@@ -1,4 +1,4 @@
-from utils import h52obj, obj2h5, idcolormap
+from utils import h52obj, obj2h5, get_colors
 import tensorflow as tf
 import numpy as np
 import random
@@ -17,16 +17,16 @@ class BDD100k():
         self.x_files = []
         self.y_files = []
         self.weights = []
+        self.colormap = None
 
     def __len__(self):
         return len(self.x_files)
 
     def load_images(self):
         label_files = glob.glob(os.path.join(self.lbdir, "*.png"))
-        file_ids = [os.path.basename(f).replace(
-            "_L.png", ".png") for f in label_files]
-        input_files = [os.path.join(self.imdir, file_id[:-3]+'jpg')
-                       for file_id in file_ids]
+        label_files = label_files + (glob.glob(os.path.join(self.lbdir, "*.jpg")))
+        input_files = glob.glob(os.path.join(self.imdir, "*.jpg"))
+        input_files = input_files + (glob.glob(os.path.join(self.imdir, "*.png")))
         self.y_files = [np.string_(f) for f in label_files]
         self.x_files = [np.string_(f) for f in input_files]
         self.x_files.sort()
@@ -104,8 +104,8 @@ class BDD100k():
     def seg2label(self, img):
         height, width, _ = img.shape
         label = np.zeros([height, width], dtype=np.uint8)
-        for id in range(len(idcolormap)):
-            label[np.all(img == np.array(idcolormap[id]), axis=2)] = id
+        for id in range(len(self.colormap)):
+            label[np.all(img == np.array(self.colormap[id]), axis=2)] = id
         return label
 
     def save_weights(self, saveto):

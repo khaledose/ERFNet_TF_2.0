@@ -1,5 +1,5 @@
 from visualizer import get_mask
-from utils import colormap
+from utils import h52obj
 from model import Model
 import numpy as np
 import argparse
@@ -42,6 +42,7 @@ if __name__ == '__main__':
     n_classes = args.num_classes
     checkpoint_path = args.model_dir
     output_path = args.output_dir
+    colormap = h52obj(os.path.join(checkpoint_path, 'colormap.h5'))['colormap']
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 

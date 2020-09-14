@@ -1,4 +1,4 @@
-from utils import h52obj, obj2h5, colormap
+from utils import h52obj, obj2h5
 from erfnet import ERFNet
 import tensorflow as tf
 import numpy as np
