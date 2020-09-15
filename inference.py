@@ -40,9 +40,9 @@ if __name__ == '__main__':
     width = args.width
     height = args.height
     n_classes = args.num_classes
-    checkpoint_path = args.model_dir
+    checkpoint_path = args.model_dir + '/last_epoch/cp.ckpt'
     output_path = args.output_dir
-    colormap = h52obj(os.path.join(checkpoint_path, 'colormap.h5'))['colormap']
+    colormap = h52obj(os.path.join(args.model_dir, 'colormap.h5'))['colormap']
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
